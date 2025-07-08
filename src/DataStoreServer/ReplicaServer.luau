@@ -87,7 +87,7 @@ MAD STUDIO
 
 ----- Dependencies -----
 
-local ReplicaShared = game.ReplicatedStorage.DataStoreShared
+local ReplicaShared = script.Parent.Parent.DataStoreShared
 local RateLimit = require(ReplicaShared.RateLimit)
 local Remote = require(ReplicaShared.Remote)
 local Signal = require(ReplicaShared.Signal)

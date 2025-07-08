@@ -70,7 +70,7 @@ MAD STUDIO
 
 ----- Dependencies -----
 
-local ReplicaShared = game.ReplicatedStorage.DataStoreShared
+local ReplicaShared = script.Parent.Parent.DataStoreShared
 local Remote = require(ReplicaShared.Remote)
 local Signal = require(ReplicaShared.Signal)
 local Maid = require(ReplicaShared.Maid)
@@ -84,8 +84,6 @@ local MAID_LOCK = {}
 local REQUEST_DATA_REPEAT = 2
 
 local CollectionService = game:GetService("CollectionService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
 
 local DataRequestStarted = false
 

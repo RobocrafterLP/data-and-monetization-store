@@ -1,7 +1,7 @@
 local Players = game:GetService("Players")
 
-local DataStoreShared = game.ReplicatedStorage.DataStoreShared
-local DataStoreServer = game.ServerScriptService.DataStoreServer
+local DataStoreShared = script.Parent.DataStoreShared
+local DataStoreServer = script.Parent.DataStoreServer
 
 local Replica = require(DataStoreServer.ReplicaServer)
 local ProfileStore = require(DataStoreServer.ProfileStore)
