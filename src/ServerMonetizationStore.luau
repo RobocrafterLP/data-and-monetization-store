@@ -23,6 +23,33 @@ local Monetization_SendPromptPurchase = Remote.New("Monetization_SendPromptPurch
 local Monetization_DevProductPurchased = Remote.New("Monetization_DevProductPurchased")
 local Monetization_GamepassPurchased = Remote.New("Monetization_GamepassPurchased")
 
+local Profile = {}
+Profile.__index = Profile
+
+local MonetizationStore = {
+	_profiles = {} :: { [Player]: Profile },
+	options = {},
+	profileStore = {} :: ProfileStore.ProfileStore<any>,
+	token = {} :: Replica.Token,
+	_init = false,
+	_productInfosLoaded = 0,
+	_productInfosToLoad = 0,
+	_productInfosLoadedSignal = Signal.new() :: Signal.Signal<nil>,
+	OnDevProductPurchased = Signal.new() :: Signal.Signal<Player, ProductInfo, ReceiptInfo>,
+	OnGamepassPurchased = Signal.new() :: Signal.Signal<Player, GamepassInfo>,
+	OnProductPurchased = Signal.new() :: Signal.Signal<Player, ProductInfo, ReceiptInfo?>,
+	OnGroupRewardClaimAttempted = Signal.new() :: Signal.Signal<Player, boolean>,
+	Handlers = {
+		Gamepasses = {} :: PurchaseHandlers,
+		DevProducts = {} :: PurchaseHandlers,
+	},
+	ProductTypes = table.freeze({
+		Gamepass = "Monetization:ProductTypes:Gamepass",
+		DevProduct = "Monetization:ProductTypes:DevProduct",
+		DeveloperProduct = "Monetization:ProductTypes:DevProduct",
+	}),
+}
+
 function generateUUID()
 	local template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"
 	return string.gsub(template, "[xy]", function(c)
@@ -40,9 +67,6 @@ function StringPathToArray(path)
 	end
 	return path_array
 end
-
-local Profile = {}
-Profile.__index = Profile
 
 function Profile.IsActive(self: Profile): boolean
 	return self.Profile:IsActive()
@@ -282,30 +306,6 @@ function Profile.VisualizeData(self: Profile): ()
 
 	ProcessTable(self.Profile.Data, visual)
 end
-
-local MonetizationStore = {
-	_profiles = {} :: { [Player]: Profile },
-	options = {},
-	profileStore = {} :: ProfileStore.ProfileStore<any>,
-	token = {} :: Replica.Token,
-	_init = false,
-	_productInfosLoaded = 0,
-	_productInfosToLoad = 0,
-	_productInfosLoadedSignal = Signal.new() :: Signal.Signal<nil>,
-	OnDevProductPurchased = Signal.new() :: Signal.Signal<Player, ProductInfo, ReceiptInfo>,
-	OnGamepassPurchased = Signal.new() :: Signal.Signal<Player, GamepassInfo>,
-	OnProductPurchased = Signal.new() :: Signal.Signal<Player, ProductInfo, ReceiptInfo?>,
-	OnGroupRewardClaimAttempted = Signal.new() :: Signal.Signal<Player, boolean>,
-	Handlers = {
-		Gamepasses = {} :: PurchaseHandlers,
-		DevProducts = {} :: PurchaseHandlers,
-	},
-	ProductTypes = table.freeze({
-		Gamepass = "Monetization:ProductTypes:Gamepass",
-		DevProduct = "Monetization:ProductTypes:DevProduct",
-		DeveloperProduct = "Monetization:ProductTypes:DevProduct",
-	}),
-}
 
 function MonetizationStore.init(self: MonetizationStore, options: DataOptions): ()
 	local PlayerStore = ProfileStore.New(options.DataKey, options.template)

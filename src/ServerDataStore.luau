@@ -11,6 +11,17 @@ local Replica = require(DataStoreServer.ReplicaServer)
 local ProfileStore = require(DataStoreServer.ProfileStore)
 local Connection = require(DataStoreShared.Connection)
 
+local Profile = {}
+Profile.__index = Profile
+
+local DataStore = {
+	_profiles = {} :: { [Player]: Profile },
+	options = {},
+	profileStore = {} :: ProfileStore.ProfileStore<any>,
+	token = {} :: Replica.Token,
+	_init = false,
+}
+
 function StringPathToArray(path)
 	local path_array = {}
 	if path ~= "" then
@@ -20,9 +31,6 @@ function StringPathToArray(path)
 	end
 	return path_array
 end
-
-local Profile = {}
-Profile.__index = Profile
 
 function Profile.IsActive(self: Profile): boolean
 	return self.Profile:IsActive()
@@ -288,14 +296,6 @@ function Profile.VisualizeData(self: Profile): ()
 
 	ProcessTable(self.Profile.Data, visual)
 end
-
-local DataStore = {
-	_profiles = {} :: { [Player]: Profile },
-	options = {},
-	profileStore = {} :: ProfileStore.ProfileStore<any>,
-	token = {} :: Replica.Token,
-	_init = false,
-}
 
 function DataStore.init(self: DataStore, options: DataOptions): ()
 	local PlayerStore = ProfileStore.New(options.DataKey, options.template)

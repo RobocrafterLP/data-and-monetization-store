@@ -418,7 +418,7 @@ end
 
 function MonetizationStore.init(self: MonetizationStore, DataOptions: DataOptions)
 	self.DataOptions = DataOptions
-	Replica.FromData(table.clone(DataOptions.template), DataOptions.DataKey, 1)
+	Replica.FromData(table.clone(DataOptions.template), "MonetizationStore", 1)
 end
 
 export type PurchaseHandler = (

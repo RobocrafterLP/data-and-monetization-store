@@ -215,7 +215,7 @@ end
 
 function DataStore.init(self: DataStore, DataOptions: DataOptions)
 	self.DataOptions = DataOptions
-	Replica.FromData(table.clone(DataOptions.template), DataOptions.DataKey, 2)
+	Replica.FromData(table.clone(DataOptions.template), "DataStore", 2)
 end
 
 export type DataOptions = {
