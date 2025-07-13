@@ -279,6 +279,8 @@ function Replica.Test()
 	}
 end
 
+
+
 function Replica:OnSet(path: {}, listener: () -> ()): Connection
 	local path_key = table.concat(path, ".")
 	local listeners = self.set_listeners[path_key]
@@ -878,6 +880,68 @@ end)
 for _, instance: NumberValue in pairs(CollectionService:GetTagged(CS_TAG)) do
 	if instance:IsA("NumberValue") == true then
 		OnBindInstanceAdded(instance)
+	end
+end
+
+function Replica.FromData(Data, key, index)
+	local announce_buffer = {} -- {replica, ...} -- Announce these
+
+	local creation = {
+		[`{index}`] = {
+			[1] = key,
+			[2] = {["Player"] = game:GetService("Players").LocalPlayer},
+			[3] = Data,
+			[4] = 0
+		}
+	}
+
+	BreadthCreationSort(
+		creation,
+		nil,
+		function(id: number, self_creation: {}) -- self_creation = {token, tags, data, parent_id, write_module}
+			local parent_id = self_creation[4]
+			local replica = ReplicaNew(id, self_creation)
+			local is_bind_buffered = false
+
+			if parent_id == 0 then -- Top replica
+				if replica.Tags[BIND_TAG] == true then
+					local bound_instance = BindInstances[id]
+					replica.BoundInstance = bound_instance
+
+					if bound_instance == nil then
+						is_bind_buffered = true
+					end
+				end
+			elseif BindReplicas[parent_id] ~= nil then
+				is_bind_buffered = true
+			end
+
+			if is_bind_buffered == true then
+				BindReplicas[id] = replica
+			else
+				local token = replica.Token
+				local token_replicas = TokenReplicas[token]
+
+				if token_replicas == nil then
+					token_replicas = {}
+					TokenReplicas[token] = token_replicas
+				end
+
+				token_replicas[replica] = true
+				Replicas[id] = replica
+
+				table.insert(announce_buffer, replica)
+			end
+		end
+	)
+
+	for _, replica in ipairs(announce_buffer) do
+		local listeners = NewReplicaListeners[replica.Token]
+		if listeners ~= nil then
+			for connection in pairs(listeners) do
+				connection:Fire(replica)
+			end
+		end
 	end
 end
 

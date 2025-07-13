@@ -1,3 +1,7 @@
+if game:GetService("RunService"):IsClient() then
+	return {}
+end
+
 local Players = game:GetService("Players")
 
 local DataStoreShared = script.Parent.DataStoreShared

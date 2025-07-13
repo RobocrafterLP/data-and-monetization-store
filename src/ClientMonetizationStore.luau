@@ -1,3 +1,7 @@
+if game:GetService("RunService"):IsServer() then
+	return {}
+end
+
 local Players = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
 
@@ -19,6 +23,27 @@ local Monetization_SendPromptPurchase = Remote.New("Monetization_SendPromptPurch
 local Monetization_DevProductPurchased = Remote.New("Monetization_DevProductPurchased")
 local Monetization_GamepassPurchased = Remote.New("Monetization_GamepassPurchased")
 
+local Profile = {}
+Profile.__index = Profile
+
+local MonetizationStore = {
+	Intialized = false,
+	_profiles = {} :: { [Player]: Profile },
+	OnDevProductPurchased = Signal.new() :: Signal.Signal<DevProduct, ReceiptInfo>,
+	OnGamepassPurchased = Signal.new() :: Signal.Signal<Gamepass>,
+	OnProductPurchased = Signal.new() :: Signal.Signal<any, ReceiptInfo?>,
+	OnGroupRewardClaimAttempted = Signal.new() :: Signal.Signal<boolean>,
+	Handlers = {
+		Gamepasses = {} :: PurchaseHandlers,
+		DevProducts = {} :: PurchaseHandlers,
+	},
+	ProductTypes = table.freeze({
+		Gamepass = "Monetization:ProductTypes:Gamepass",
+		DevProduct = "Monetization:ProductTypes:DevProduct",
+		DeveloperProduct = "Monetization:ProductTypes:DevProduct",
+	}),
+}
+
 function generateUUID()
 	local template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"
 	return string.gsub(template, "[xy]", function(c)
@@ -37,8 +62,78 @@ function StringPathToArray(path)
 	return path_array
 end
 
-local Profile = {}
-Profile.__index = Profile
+function CreateProfile(replica)
+	local player: Player? = replica.Tags.Player
+	if not player then
+		return
+	end
+
+	local playerreplica = setmetatable({
+		Replica = replica,
+		_player = player,
+		Connections = {},
+		Listeners = {
+			Change = {},
+			NewKey = {},
+			RemoveKey = {},
+			ArrayInsert = {},
+			ArrayRemove = {},
+			Leaderstats = {},
+		},
+	}, Profile)
+
+	player.AncestryChanged:Connect(function()
+		if not player:IsDescendantOf(Players) then
+			MonetizationStore._profiles[player] = nil
+		end
+	end)
+
+	playerreplica.Replica:OnChange(function(action, path, new, old)
+		local path_key = table.concat(path, ".")
+		if action == "Set" and old ~= nil and new ~= nil then
+			local listeners = playerreplica.Listeners.Change[path_key]
+			if listeners ~= nil then
+				for connection in pairs(listeners) do
+					connection:Fire(new, old)
+				end
+			end
+		elseif action == "Set" and old and new == nil then
+			local key = table.remove(path, #path)
+			local path_key = table.concat(path, ".")
+			local listeners = playerreplica.Listeners.RemoveKey[path_key]
+			if listeners ~= nil then
+				for connection in pairs(listeners) do
+					connection:Fire(key, new, old)
+				end
+			end
+		elseif action == "Set" and old == nil and new then
+			local key = table.remove(path, #path)
+			local path_key = table.concat(path, ".")
+			local listeners = playerreplica.Listeners.NewKey[path_key]
+			if listeners ~= nil then
+				for connection in pairs(listeners) do
+					connection:Fire(key, new, old)
+				end
+			end
+		elseif action == "TableInsert" then
+			local listeners = playerreplica.Listeners.ArrayInsert[path_key]
+			if listeners ~= nil then
+				for connection in pairs(listeners) do
+					connection:Fire(new, old)
+				end
+			end
+		elseif action == "TableRemove" then
+			local listeners = playerreplica.Listeners.ArrayRemove[path_key]
+			if listeners ~= nil then
+				for connection in pairs(listeners) do
+					connection:Fire(new, old)
+				end
+			end
+		end
+	end)
+
+	MonetizationStore._profiles[player] = playerreplica
+end
 
 function Profile.IsActive(self: Profile)
 	return self.Replica:IsActive()
@@ -135,24 +230,6 @@ function Profile.SubscribeToArrayRemove(
 
 	return Connection.new(listeners, listener)
 end
-
-local MonetizationStore = {
-	Intialized = false,
-	_profiles = {} :: { [Player]: Profile },
-	OnDevProductPurchased = Signal.new() :: Signal.Signal<DevProduct, ReceiptInfo>,
-	OnGamepassPurchased = Signal.new() :: Signal.Signal<Gamepass>,
-	OnProductPurchased = Signal.new() :: Signal.Signal<any, ReceiptInfo?>,
-	OnGroupRewardClaimAttempted = Signal.new() :: Signal.Signal<boolean>,
-	Handlers = {
-		Gamepasses = {} :: PurchaseHandlers,
-		DevProducts = {} :: PurchaseHandlers,
-	},
-	ProductTypes = table.freeze({
-		Gamepass = "Monetization:ProductTypes:Gamepass",
-		DevProduct = "Monetization:ProductTypes:DevProduct",
-		DeveloperProduct = "Monetization:ProductTypes:DevProduct",
-	}),
-}
 
 function MonetizationStore.SearchTableForProduct(
 	self: MonetizationStore,
@@ -339,6 +416,11 @@ function MonetizationStore.Intialize(self: MonetizationStore)
 	end)
 end
 
+function MonetizationStore.init(self: MonetizationStore, DataOptions: DataOptions)
+	self.DataOptions = DataOptions
+	Replica.FromData(table.clone(DataOptions.template), DataOptions.DataKey, 1)
+end
+
 export type PurchaseHandler = (
 	player: Player,
 	productInfo: GamepassInfo | ProductInfo,
@@ -460,78 +542,15 @@ export type DevProducts = {
 	[product]: DevProduct?,
 }
 
-Replica.OnNew("MonetizationStore", function(replica)
-	local player: Player? = replica.Tags.Player
-	if not player then
-		return
-	end
+export type DataOptions = {
+	template: any,
+	DataKey: string,
+	useMock: boolean?,
+	Gamepasses: Gamepasses,
+	DevProducts: DevProducts,
+}
 
-	local playerreplica = setmetatable({
-		Replica = replica,
-		_player = player,
-		Connections = {},
-		Listeners = {
-			Change = {},
-			NewKey = {},
-			RemoveKey = {},
-			ArrayInsert = {},
-			ArrayRemove = {},
-			Leaderstats = {},
-		},
-	}, Profile)
-
-	player.AncestryChanged:Connect(function()
-		if not player:IsDescendantOf(Players) then
-			MonetizationStore._profiles[player] = nil
-		end
-	end)
-
-	playerreplica.Replica:OnChange(function(action, path, new, old)
-		local path_key = table.concat(path, ".")
-		if action == "Set" and old ~= nil and new ~= nil then
-			local listeners = playerreplica.Listeners.Change[path_key]
-			if listeners ~= nil then
-				for connection in pairs(listeners) do
-					connection:Fire(new, old)
-				end
-			end
-		elseif action == "Set" and old and new == nil then
-			local key = table.remove(path, #path)
-			local path_key = table.concat(path, ".")
-			local listeners = playerreplica.Listeners.RemoveKey[path_key]
-			if listeners ~= nil then
-				for connection in pairs(listeners) do
-					connection:Fire(key, new, old)
-				end
-			end
-		elseif action == "Set" and old == nil and new then
-			local key = table.remove(path, #path)
-			local path_key = table.concat(path, ".")
-			local listeners = playerreplica.Listeners.NewKey[path_key]
-			if listeners ~= nil then
-				for connection in pairs(listeners) do
-					connection:Fire(key, new, old)
-				end
-			end
-		elseif action == "TableInsert" then
-			local listeners = playerreplica.Listeners.ArrayInsert[path_key]
-			if listeners ~= nil then
-				for connection in pairs(listeners) do
-					connection:Fire(new, old)
-				end
-			end
-		elseif action == "TableRemove" then
-			local listeners = playerreplica.Listeners.ArrayRemove[path_key]
-			if listeners ~= nil then
-				for connection in pairs(listeners) do
-					connection:Fire(new, old)
-				end
-			end
-		end
-	end)
-
-	MonetizationStore._profiles[player] = playerreplica
-end)
+Replica.OnNew("MonetizationStore", CreateProfile)
 
 Replica.RequestData()
 MonetizationStore:Intialize()
