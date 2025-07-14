@@ -249,7 +249,7 @@ export type Profile = typeof(Profile) & {
 	},
 }
 
-Replica.OnNew("DataStoreClient", CreateProfile)
+Replica.OnNew("DataStore", CreateProfile)
 
 Replica.RequestData()
 return DataStoreClient

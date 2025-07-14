@@ -550,7 +550,7 @@ export type DataOptions = {
 	DevProducts: DevProducts,
 }
 
-Replica.OnNew("MonetizationStoreClient", CreateProfile)
+Replica.OnNew("MonetizationStore", CreateProfile)
 
 Replica.RequestData()
 MonetizationStoreClient:Intialize()
