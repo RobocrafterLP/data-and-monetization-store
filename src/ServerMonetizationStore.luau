@@ -77,6 +77,10 @@ function Profile.EndSession(self: Profile): ()
 end
 
 function Profile.GetValue(self: Profile, path: string | { any }): any
+	if self:IsActive() == false then
+		return
+	end
+
 	if typeof(path) == "string" then
 		return self.Replica:Get(StringPathToArray(path))
 	end
@@ -85,6 +89,9 @@ function Profile.GetValue(self: Profile, path: string | { any }): any
 end
 
 function Profile.SetValue(self: Profile, path: string | { any }, value: any): ()
+	if self:IsActive() == false then
+		return
+	end
 	if typeof(path) == "string" then
 		self.Replica:Set(StringPathToArray(path), value)
 	else
@@ -95,6 +102,9 @@ function Profile.SetValue(self: Profile, path: string | { any }, value: any): ()
 end
 
 function Profile.SetValues(self: Profile, path: string | { any }, value: any): ()
+	if self:IsActive() == false then
+		return
+	end
 	if typeof(path) == "string" then
 		self.Replica:SetValues(StringPathToArray(path), value)
 	else
@@ -119,6 +129,9 @@ function Profile.RemoveValue(self: Profile, path: string | { any }, value: any):
 end
 
 function Profile.TableInsert(self: Profile, path: string | { any }, value: any, index: number?): number?
+	if self:IsActive() == false then
+		return
+	end
 	local Data
 
 	if typeof(path) == "string" then
@@ -132,6 +145,9 @@ function Profile.TableInsert(self: Profile, path: string | { any }, value: any, 
 end
 
 function Profile.TableRemove(self: Profile, path: string | { any }, index: number): number?
+	if self:IsActive() == false then
+		return
+	end
 	local Data
 
 	if typeof(path) == "string" then
@@ -554,8 +570,6 @@ function MonetizationStoreServer._playerAdded(self: MonetizationStoreServer, pla
 	playerprofile:Reconcile()
 
 	playerprofile.OnSessionEnd:Connect(function()
-		local profile = self._profiles[player]
-		profile.Replica:Destroy()
 		self._profiles[player] = nil
 		player:Kick(`Profile session end - Please rejoin`)
 	end)
@@ -607,6 +621,7 @@ function MonetizationStoreServer._playerRemoving(self: MonetizationStoreServer, 
 	end
 
 	profile:EndSession()
+	self._profiles[player].Replica:Destroy()
 	self._profiles[player] = nil
 end
 

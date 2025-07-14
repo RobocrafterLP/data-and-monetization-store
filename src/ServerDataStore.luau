@@ -41,6 +41,10 @@ function Profile.EndSession(self: Profile): ()
 end
 
 function Profile.GetValue(self: Profile, path: string | { any }): any
+	if self:IsActive() == false then
+		return
+	end
+
 	if typeof(path) == "string" then
 		return self.Replica:Get(StringPathToArray(path))
 	end
@@ -49,6 +53,9 @@ function Profile.GetValue(self: Profile, path: string | { any }): any
 end
 
 function Profile.SetValue(self: Profile, path: string | { any }, value: any): ()
+	if self:IsActive() == false then
+		return
+	end
 	if typeof(path) == "string" then
 		self.Replica:Set(StringPathToArray(path), value)
 	else
@@ -59,6 +66,9 @@ function Profile.SetValue(self: Profile, path: string | { any }, value: any): ()
 end
 
 function Profile.SetValues(self: Profile, path: string | { any }, value: any): ()
+	if self:IsActive() == false then
+		return
+	end
 	if typeof(path) == "string" then
 		self.Replica:SetValues(StringPathToArray(path), value)
 	else
@@ -83,6 +93,9 @@ function Profile.RemoveValue(self: Profile, path: string | { any }, value: any):
 end
 
 function Profile.TableInsert(self: Profile, path: string | { any }, value: any, index: number?): number?
+	if self:IsActive() == false then
+		return
+	end
 	local Data
 
 	if typeof(path) == "string" then
@@ -96,6 +109,9 @@ function Profile.TableInsert(self: Profile, path: string | { any }, value: any, 
 end
 
 function Profile.TableRemove(self: Profile, path: string | { any }, index: number): number?
+	if self:IsActive() == false then
+		return
+	end
 	local Data
 
 	if typeof(path) == "string" then
@@ -285,7 +301,7 @@ function DataStoreServer.init(self: DataStoreServer, options: DataOptions): ()
 	local PlayerStore = ProfileStore.New(options.DataKey, options.template)
 	self.options = options
 	self.profileStore = options.useMock and PlayerStore.Mock or PlayerStore
-	self.token = Replica.Token("DataStore")
+	self.token = Replica.Token("DataStoreServer")
 
 	for _, player: Player in Players:GetPlayers() do
 		task.spawn(function()
@@ -327,7 +343,6 @@ function DataStoreServer._playerAdded(self: DataStoreServer, player: Player): ()
 			Connection:Disconnect()
 			profile.Connections[index] = nil
 		end
-		profile.Replica:Destroy()
 		self._profiles[player] = nil
 		player:Kick(`Profile session end - Please rejoin`)
 	end)
@@ -424,6 +439,7 @@ function DataStoreServer._playerRemoving(self: DataStoreServer, player: Player):
 	self:OnPlayerRemoving(player, profile)
 
 	profile:EndSession()
+	self._profiles[player].Replica:Destroy()
 	self._profiles[player] = nil
 end
 
