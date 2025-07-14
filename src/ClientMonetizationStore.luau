@@ -26,7 +26,7 @@ local Monetization_GamepassPurchased = Remote.New("Monetization_GamepassPurchase
 local Profile = {}
 Profile.__index = Profile
 
-local MonetizationStore = {
+local MonetizationStoreClient = {
 	Intialized = false,
 	_profiles = {} :: { [Player]: Profile },
 	OnDevProductPurchased = Signal.new() :: Signal.Signal<DevProduct, ReceiptInfo>,
@@ -84,7 +84,7 @@ function CreateProfile(replica)
 
 	player.AncestryChanged:Connect(function()
 		if not player:IsDescendantOf(Players) then
-			MonetizationStore._profiles[player] = nil
+			MonetizationStoreClient._profiles[player] = nil
 		end
 	end)
 
@@ -132,7 +132,7 @@ function CreateProfile(replica)
 		end
 	end)
 
-	MonetizationStore._profiles[player] = playerreplica
+	MonetizationStoreClient._profiles[player] = playerreplica
 end
 
 function Profile.IsActive(self: Profile)
@@ -231,8 +231,8 @@ function Profile.SubscribeToArrayRemove(
 	return Connection.new(listeners, listener)
 end
 
-function MonetizationStore.SearchTableForProduct(
-	self: MonetizationStore,
+function MonetizationStoreClient.SearchTableForProduct(
+	self: MonetizationStoreClient,
 	products,
 	product: product
 ): DevProduct | Gamepass?
@@ -249,19 +249,19 @@ function MonetizationStore.SearchTableForProduct(
 	return nil
 end
 
-function MonetizationStore.GetGamepassInfo(self: MonetizationStore, product: product): Gamepass?
+function MonetizationStoreClient.GetGamepassInfo(self: MonetizationStoreClient, product: product): Gamepass?
 	return self:SearchTableForProduct(MonetizationConfig.Gamepasses, product) :: Gamepass?
 end
 
-function MonetizationStore.GetDevProductInfo(self: MonetizationStore, product: product): DevProduct?
+function MonetizationStoreClient.GetDevProductInfo(self: MonetizationStoreClient, product: product): DevProduct?
 	return self:SearchTableForProduct(MonetizationConfig.DevProducts, product) :: DevProduct?
 end
 
-function MonetizationStore.GetProductInfo(self: MonetizationStore, product: product): DevProduct | Gamepass?
+function MonetizationStoreClient.GetProductInfo(self: MonetizationStoreClient, product: product): DevProduct | Gamepass?
 	return self:GetDevProductInfo(product) or self:GetGamepassInfo(product)
 end
 
-function MonetizationStore.PromptPurchase(self: MonetizationStore, product: product)
+function MonetizationStoreClient.PromptPurchase(self: MonetizationStoreClient, product: product)
 	local productInfo = self:GetProductInfo(product)
 	if not productInfo then
 		return
@@ -274,7 +274,7 @@ function MonetizationStore.PromptPurchase(self: MonetizationStore, product: prod
 	end
 end
 
-function MonetizationStore.SendPromptPurchaseSignal(self: MonetizationStore, product: product)
+function MonetizationStoreClient.SendPromptPurchaseSignal(self: MonetizationStoreClient, product: product)
 	local productInfo = self:GetProductInfo(product)
 	if not productInfo then
 		return
@@ -283,8 +283,8 @@ function MonetizationStore.SendPromptPurchaseSignal(self: MonetizationStore, pro
 	Monetization_SendPromptPurchase:FireServer(productInfo.ProductId)
 end
 
-function MonetizationStore.BindGamepassPurchaseHandler(
-	self: MonetizationStore,
+function MonetizationStoreClient.BindGamepassPurchaseHandler(
+	self: MonetizationStoreClient,
 	product: product,
 	purchaseHandler: PurchaseHandler
 ): string?
@@ -302,8 +302,8 @@ function MonetizationStore.BindGamepassPurchaseHandler(
 	return uuid
 end
 
-function MonetizationStore.BindDevProductPurchaseHandler(
-	self: MonetizationStore,
+function MonetizationStoreClient.BindDevProductPurchaseHandler(
+	self: MonetizationStoreClient,
 	product: product,
 	purchaseHandler: PurchaseHandler
 ): string?
@@ -323,8 +323,8 @@ function MonetizationStore.BindDevProductPurchaseHandler(
 	return uuid
 end
 
-function MonetizationStore.AttemptToClaimGroupReward(
-	self: MonetizationStore,
+function MonetizationStoreClient.AttemptToClaimGroupReward(
+	self: MonetizationStoreClient,
 	callback: (claimSuccess: boolean) -> ()?,
 	onlyCallbackOnClaimSuccess: boolean?
 ): boolean
@@ -343,7 +343,7 @@ function MonetizationStore.AttemptToClaimGroupReward(
 	return claimSuccess
 end
 
-function MonetizationStore.PlayerOwnsGamepass(self: MonetizationStore, productId: product, player: Player?): boolean
+function MonetizationStoreClient.PlayerOwnsGamepass(self: MonetizationStoreClient, productId: product, player: Player?): boolean
 	local productInfo = self:GetGamepassInfo(productId)
 	if not productInfo then
 		return false
@@ -356,15 +356,15 @@ function MonetizationStore.PlayerOwnsGamepass(self: MonetizationStore, productId
 	return Profile:GetValue(`OwnedGamepasses.{productInfo.GamepassId}`)
 end
 
-function MonetizationStore.HasProfile(self: MonetizationStore, player: Player?): boolean
+function MonetizationStoreClient.HasProfile(self: MonetizationStoreClient, player: Player?): boolean
 	return self._profiles[player or LocalPlayer] ~= nil
 end
 
-function MonetizationStore.GetProfile(self: MonetizationStore, player: Player?): Profile?
+function MonetizationStoreClient.GetProfile(self: MonetizationStoreClient, player: Player?): Profile?
 	return self._profiles[player or LocalPlayer]
 end
 
-function MonetizationStore.GetPlayerProfileAsync(self: MonetizationStore, player: Player?): Profile
+function MonetizationStoreClient.GetPlayerProfileAsync(self: MonetizationStoreClient, player: Player?): Profile
 	local Profile = self:GetProfile(player)
 	repeat
 		task.wait()
@@ -373,7 +373,7 @@ function MonetizationStore.GetPlayerProfileAsync(self: MonetizationStore, player
 	return Profile
 end
 
-function MonetizationStore.Intialize(self: MonetizationStore)
+function MonetizationStoreClient.Intialize(self: MonetizationStoreClient)
 	if self.Intialized then
 		return
 	end
@@ -416,7 +416,7 @@ function MonetizationStore.Intialize(self: MonetizationStore)
 	end)
 end
 
-function MonetizationStore.init(self: MonetizationStore, DataOptions: DataOptions)
+function MonetizationStoreClient.init(self: MonetizationStoreClient, DataOptions: DataOptions)
 	self.DataOptions = DataOptions
 	Replica.FromData(table.clone(DataOptions.template), "MonetizationStore", 1)
 end
@@ -433,7 +433,7 @@ export type Connections = { [string | { string }]: typeof(Connection.new()) }
 
 export type Connection = typeof(Connection.new())
 
-export type MonetizationStore = typeof(MonetizationStore)
+export type MonetizationStoreClient = typeof(MonetizationStoreClient)
 
 export type Profile = typeof(Profile) & {
 	Replica: Replica.Replica,
@@ -550,8 +550,8 @@ export type DataOptions = {
 	DevProducts: DevProducts,
 }
 
-Replica.OnNew("MonetizationStore", CreateProfile)
+Replica.OnNew("MonetizationStoreClient", CreateProfile)
 
 Replica.RequestData()
-MonetizationStore:Intialize()
-return MonetizationStore
+MonetizationStoreClient:Intialize()
+return MonetizationStoreClient

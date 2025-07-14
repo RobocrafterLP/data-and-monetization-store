@@ -13,7 +13,7 @@ local Connection = require(DataStoreShared.Connection)
 local Profile = {}
 Profile.__index = Profile
 
-local DataStore = {
+local DataStoreClient = {
 	_profiles = {} :: { [Player]: Profile },
 }
 
@@ -49,7 +49,7 @@ function CreateProfile(replica)
 
 	player.AncestryChanged:Connect(function()
 		if not player:IsDescendantOf(Players) then
-			DataStore._profiles[player] = nil
+			DataStoreClient._profiles[player] = nil
 		end
 	end)
 
@@ -97,7 +97,7 @@ function CreateProfile(replica)
 		end
 	end)
 
-	DataStore._profiles[player] = playerreplica
+	DataStoreClient._profiles[player] = playerreplica
 end
 
 function Profile.IsActive(self: Profile)
@@ -196,15 +196,15 @@ function Profile.SubscribeToArrayRemove(
 	return Connection.new(listeners, listener)
 end
 
-function DataStore.HasProfile(self: DataStore, player: Player?): boolean
+function DataStoreClient.HasProfile(self: DataStoreClient, player: Player?): boolean
 	return self._profiles[player or LocalPlayer] ~= nil
 end
 
-function DataStore.GetProfile(self: DataStore, player: Player?): Profile?
+function DataStoreClient.GetProfile(self: DataStoreClient, player: Player?): Profile?
 	return self._profiles[player or LocalPlayer]
 end
 
-function DataStore.GetPlayerProfileAsync(self: DataStore, player: Player?): Profile
+function DataStoreClient.GetPlayerProfileAsync(self: DataStoreClient, player: Player?): Profile
 	local Profile = self:GetProfile(player)
 	repeat
 		task.wait()
@@ -213,7 +213,7 @@ function DataStore.GetPlayerProfileAsync(self: DataStore, player: Player?): Prof
 	return Profile
 end
 
-function DataStore.init(self: DataStore, DataOptions: DataOptions)
+function DataStoreClient.init(self: DataStoreClient, DataOptions: DataOptions)
 	self.DataOptions = DataOptions
 	Replica.FromData(table.clone(DataOptions.template), "DataStore", 2)
 end
@@ -235,7 +235,7 @@ export type Connections = { [string | { string }]: typeof(Connection.new()) }
 
 export type Connection = typeof(Connection.new())
 
-export type DataStore = typeof(DataStore)
+export type DataStoreClient = typeof(DataStoreClient)
 
 export type Profile = typeof(Profile) & {
 	Replica: Replica.Replica,
@@ -249,7 +249,7 @@ export type Profile = typeof(Profile) & {
 	},
 }
 
-Replica.OnNew("DataStore", CreateProfile)
+Replica.OnNew("DataStoreClient", CreateProfile)
 
 Replica.RequestData()
-return DataStore
+return DataStoreClient

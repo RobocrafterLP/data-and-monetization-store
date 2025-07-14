@@ -14,7 +14,7 @@ local Connection = require(DataStoreShared.Connection)
 local Profile = {}
 Profile.__index = Profile
 
-local DataStore = {
+local DataStoreServer = {
 	_profiles = {} :: { [Player]: Profile },
 	options = {},
 	profileStore = {} :: ProfileStore.ProfileStore<any>,
@@ -297,7 +297,7 @@ function Profile.VisualizeData(self: Profile): ()
 	ProcessTable(self.Profile.Data, visual)
 end
 
-function DataStore.init(self: DataStore, options: DataOptions): ()
+function DataStoreServer.init(self: DataStoreServer, options: DataOptions): ()
 	local PlayerStore = ProfileStore.New(options.DataKey, options.template)
 	self.options = options
 	self.profileStore = options.useMock and PlayerStore.Mock or PlayerStore
@@ -319,7 +319,7 @@ function DataStore.init(self: DataStore, options: DataOptions): ()
 	self._init = true
 end
 
-function DataStore._playerAdded(self: DataStore, player: Player): ()
+function DataStoreServer._playerAdded(self: DataStoreServer, player: Player): ()
 	local userId = player.UserId
 
 	local playerprofile: ProfileStore.Profile<typeof(self.options.template)> =
@@ -427,34 +427,40 @@ function DataStore._playerAdded(self: DataStore, player: Player): ()
 	playerreplica.Replica:Replicate()
 
 	self._profiles[player] = playerreplica
+	self:OnPlayerAdded(player, playerreplica)
 end
 
-function DataStore._playerRemoving(self: DataStore, player: Player): ()
+function DataStoreServer._playerRemoving(self: DataStoreServer, player: Player): ()
 	local profile = self:GetProfile(player)
 
 	if not profile then
 		return
 	end
 
+	self:OnPlayerRemoving(player, profile)
+
 	profile:EndSession()
 	self._profiles[player] = nil
 end
 
-function DataStore._isinit(self: DataStore): ()
+function DataStoreServer.OnPlayerAdded(self: DataStoreServer, _player: Player, _profile: Profile) end
+function DataStoreServer.OnPlayerRemoving(self: DataStoreServer, _player: Player, _profile: Profile) end
+
+function DataStoreServer._isinit(self: DataStoreServer): ()
 	assert(self._init, "Init first to use Datastore")
 end
 
-function DataStore.GetProfile(self: DataStore, player: Player): Profile?
+function DataStoreServer.GetProfile(self: DataStoreServer, player: Player): Profile?
 	self:_isinit()
 	return self._profiles[player] :: Profile?
 end
 
-function DataStore.HasProfile(self: DataStore, player: Player): boolean
+function DataStoreServer.HasProfile(self: DataStoreServer, player: Player): boolean
 	self:_isinit()
 	return self._profiles[player] ~= nil
 end
 
-function DataStore.GetPlayerProfileAsync(self: DataStore, player: Player): Profile
+function DataStoreServer.GetPlayerProfileAsync(self: DataStoreServer, player: Player): Profile
 	self:_isinit()
 	local Profile = self:GetProfile(player)
 	repeat
@@ -464,7 +470,7 @@ function DataStore.GetPlayerProfileAsync(self: DataStore, player: Player): Profi
 	return Profile
 end
 
-export type DataStore = typeof(DataStore)
+export type DataStoreServer = typeof(DataStoreServer)
 
 export type Connections = { [string | { string }]: typeof(Connection.new()) }
 
@@ -498,4 +504,4 @@ export type DataOptions = {
 	}?,
 }
 
-return DataStore
+return DataStoreServer

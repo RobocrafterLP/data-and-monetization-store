@@ -26,7 +26,7 @@ local Monetization_GamepassPurchased = Remote.New("Monetization_GamepassPurchase
 local Profile = {}
 Profile.__index = Profile
 
-local MonetizationStore = {
+local MonetizationStoreServer = {
 	_profiles = {} :: { [Player]: Profile },
 	options = {},
 	profileStore = {} :: ProfileStore.ProfileStore<any>,
@@ -307,7 +307,7 @@ function Profile.VisualizeData(self: Profile): ()
 	ProcessTable(self.Profile.Data, visual)
 end
 
-function MonetizationStore.init(self: MonetizationStore, options: DataOptions): ()
+function MonetizationStoreServer.init(self: MonetizationStoreServer, options: DataOptions): ()
 	local PlayerStore = ProfileStore.New(options.DataKey, options.template)
 	self.options = options
 	self.profileStore = options.useMock and PlayerStore.Mock or PlayerStore
@@ -551,7 +551,7 @@ function MonetizationStore.init(self: MonetizationStore, options: DataOptions): 
 	end)
 end
 
-function MonetizationStore._playerAdded(self: MonetizationStore, player: Player): ()
+function MonetizationStoreServer._playerAdded(self: MonetizationStoreServer, player: Player): ()
 	local userId = player.UserId
 
 	local playerprofile: ProfileStore.Profile<typeof(self.options.template)> =
@@ -606,14 +606,17 @@ function MonetizationStore._playerAdded(self: MonetizationStore, player: Player)
 
 	self:UpdatePlayerGroupStatus(player)
 	self:UpdatePlayerOwnedGamepasses(player)
+	self:OnPlayerAdded(player, playerreplica)
 end
 
-function MonetizationStore._playerRemoving(self: MonetizationStore, player: Player): ()
+function MonetizationStoreServer._playerRemoving(self: MonetizationStoreServer, player: Player): ()
 	local profile = self:GetProfile(player)
 
 	if not profile then
 		return
 	end
+
+	self:OnPlayerRemoving(player, profile)
 
 	if profile:GetValue("WasEverInGroup") and not profile:GetValue("WasInGroupOnLastJoin") then
 		profile:SetValue("WasInGroupOnLastJoin", true)
@@ -623,8 +626,11 @@ function MonetizationStore._playerRemoving(self: MonetizationStore, player: Play
 	self._profiles[player] = nil
 end
 
-function MonetizationStore.SearchTableForProduct(
-	self: MonetizationStore,
+function MonetizationStoreServer.OnPlayerAdded(self: MonetizationStoreServer, _player: Player, _profile: Profile) end
+function MonetizationStoreServer.OnPlayerRemoving(self: MonetizationStoreServer, _player: Player, _profile: Profile) end
+
+function MonetizationStoreServer.SearchTableForProduct(
+	self: MonetizationStoreServer,
 	products,
 	product: product
 ): DevProduct | Gamepass?
@@ -641,20 +647,20 @@ function MonetizationStore.SearchTableForProduct(
 	return nil
 end
 
-function MonetizationStore.GetGamepassInfo(self: MonetizationStore, product: product): Gamepass?
+function MonetizationStoreServer.GetGamepassInfo(self: MonetizationStoreServer, product: product): Gamepass?
 	return self:SearchTableForProduct(self.options.Gamepasses, product) :: Gamepass?
 end
 
-function MonetizationStore.GetDevProductInfo(self: MonetizationStore, product: product): DevProduct?
+function MonetizationStoreServer.GetDevProductInfo(self: MonetizationStoreServer, product: product): DevProduct?
 	return self:SearchTableForProduct(self.options.DevProducts, product) :: DevProduct?
 end
 
-function MonetizationStore.GetProductInfo(self: MonetizationStore, product: product): DevProduct | Gamepass?
+function MonetizationStoreServer.GetProductInfo(self: MonetizationStoreServer, product: product): DevProduct | Gamepass?
 	return self:GetDevProductInfo(product) or self:GetGamepassInfo(product)
 end
 
-function MonetizationStore.BindGamepassPurchaseHandler(
-	self: MonetizationStore,
+function MonetizationStoreServer.BindGamepassPurchaseHandler(
+	self: MonetizationStoreServer,
 	product: product,
 	purchaseHandler: PurchaseHandler,
 	player: Player?
@@ -690,8 +696,8 @@ function MonetizationStore.BindGamepassPurchaseHandler(
 	return uuid
 end
 
-function MonetizationStore.BindDevProductPurchaseHandler(
-	self: MonetizationStore,
+function MonetizationStoreServer.BindDevProductPurchaseHandler(
+	self: MonetizationStoreServer,
 	product: product,
 	purchaseHandler: PurchaseHandler,
 	player: Player?
@@ -729,7 +735,7 @@ function MonetizationStore.BindDevProductPurchaseHandler(
 	return uuid
 end
 
-function MonetizationStore.PromptPurchase(self: MonetizationStore, player: Player, productId: product): ()
+function MonetizationStoreServer.PromptPurchase(self: MonetizationStoreServer, player: Player, productId: product): ()
 	local productInfo = self:GetProductInfo(productId)
 	if not productInfo then
 		return
@@ -742,14 +748,14 @@ function MonetizationStore.PromptPurchase(self: MonetizationStore, player: Playe
 	end
 end
 
-function MonetizationStore.WaitForAllProductInfosToBeLoaded(self: MonetizationStore): ()
+function MonetizationStoreServer.WaitForAllProductInfosToBeLoaded(self: MonetizationStoreServer): ()
 	if self._productInfosLoaded == self._productInfosToLoad then
 		return
 	end
 	self._productInfosLoadedSignal:Wait()
 end
 
-function MonetizationStore.UpdatePlayerOwnedGamepasses(self: MonetizationStore, player: Player): { [number]: boolean }
+function MonetizationStoreServer.UpdatePlayerOwnedGamepasses(self: MonetizationStoreServer, player: Player): { [number]: boolean }
 	local ownedGamepasses = {}
 	local Profile = self:GetProfile(player)
 
@@ -775,7 +781,7 @@ function MonetizationStore.UpdatePlayerOwnedGamepasses(self: MonetizationStore, 
 	return ownedGamepasses
 end
 
-function MonetizationStore.PlayerOwnsGamepass(self: MonetizationStore, player: Player, productId: product): boolean
+function MonetizationStoreServer.PlayerOwnsGamepass(self: MonetizationStoreServer, player: Player, productId: product): boolean
 	local productInfo = self:GetGamepassInfo(productId)
 	if not productInfo then
 		return false
@@ -788,12 +794,12 @@ function MonetizationStore.PlayerOwnsGamepass(self: MonetizationStore, player: P
 	return Profile:GetValue(`OwnedGamepasses.{productInfo.GamepassId}`)
 end
 
-function MonetizationStore.IsIdAGroupId(self: MonetizationStore, potentialGroupId: number)
+function MonetizationStoreServer.IsIdAGroupId(self: MonetizationStoreServer, potentialGroupId: number)
 	local success, _ = pcall(GroupService.GetGroupInfoAsync, GroupService, game.CreatorId)
 	return success
 end
 
-function MonetizationStore.IsPlayerInGroup(self: MonetizationStore, player: Player | number, groupId: number?): boolean
+function MonetizationStoreServer.IsPlayerInGroup(self: MonetizationStoreServer, player: Player | number, groupId: number?): boolean
 	if groupId == nil then
 		if not self:IsIdAGroupId(game.CreatorId) then
 			warn(`game.CreatorId ({game.CreatorId}) is not a valid GroupId`)
@@ -820,7 +826,7 @@ function MonetizationStore.IsPlayerInGroup(self: MonetizationStore, player: Play
 	return false
 end
 
-function MonetizationStore.UpdatePlayerGroupStatus(self: MonetizationStore, player: Player): ()
+function MonetizationStoreServer.UpdatePlayerGroupStatus(self: MonetizationStoreServer, player: Player): ()
 	local isInGroup = self:IsPlayerInGroup(player)
 	local Profile = self:GetProfile(player)
 
@@ -835,8 +841,8 @@ function MonetizationStore.UpdatePlayerGroupStatus(self: MonetizationStore, play
 	end
 end
 
-function MonetizationStore.AttemptToClaimGroupReward(
-	self: MonetizationStore,
+function MonetizationStoreServer.AttemptToClaimGroupReward(
+	self: MonetizationStoreServer,
 	player: Player,
 	callback: (claimSuccess: boolean) -> ()?,
 	onlyCallbackOnClaimSuccess: boolean?
@@ -861,21 +867,21 @@ function MonetizationStore.AttemptToClaimGroupReward(
 	return true
 end
 
-function MonetizationStore._isinit(self: MonetizationStore): ()
+function MonetizationStoreServer._isinit(self: MonetizationStoreServer): ()
 	assert(self._init, "Init first to use Datastore")
 end
 
-function MonetizationStore.GetProfile(self: MonetizationStore, player: Player): Profile?
+function MonetizationStoreServer.GetProfile(self: MonetizationStoreServer, player: Player): Profile?
 	self:_isinit()
 	return self._profiles[player] :: Profile?
 end
 
-function MonetizationStore.HasProfile(self: MonetizationStore, player: Player): boolean
+function MonetizationStoreServer.HasProfile(self: MonetizationStoreServer, player: Player): boolean
 	self:_isinit()
 	return self._profiles[player] ~= nil
 end
 
-function MonetizationStore.GetPlayerProfileAsync(self: MonetizationStore, player: Player): Profile
+function MonetizationStoreServer.GetPlayerProfileAsync(self: MonetizationStoreServer, player: Player): Profile
 	self:_isinit()
 	local Profile = self:GetProfile(player)
 	repeat
@@ -893,7 +899,7 @@ export type PurchaseHandler = (
 
 export type PurchaseHandlers = { [product]: PurchaseHandlers }
 
-export type MonetizationStore = typeof(MonetizationStore)
+export type MonetizationStoreServer = typeof(MonetizationStoreServer)
 
 export type Connections = { [string | { string }]: typeof(Connection.new()) }
 
@@ -1015,4 +1021,4 @@ export type DataOptions = {
 	DevProducts: DevProducts,
 }
 
-return MonetizationStore
+return MonetizationStoreServer
