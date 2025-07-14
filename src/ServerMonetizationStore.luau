@@ -77,10 +77,6 @@ function Profile.EndSession(self: Profile): ()
 end
 
 function Profile.GetValue(self: Profile, path: string | { any }): any
-	if self:IsActive() == false then
-		return
-	end
-
 	if typeof(path) == "string" then
 		return self.Replica:Get(StringPathToArray(path))
 	end
@@ -89,9 +85,6 @@ function Profile.GetValue(self: Profile, path: string | { any }): any
 end
 
 function Profile.SetValue(self: Profile, path: string | { any }, value: any): ()
-	if self:IsActive() == false then
-		return
-	end
 	if typeof(path) == "string" then
 		self.Replica:Set(StringPathToArray(path), value)
 	else
@@ -102,9 +95,6 @@ function Profile.SetValue(self: Profile, path: string | { any }, value: any): ()
 end
 
 function Profile.SetValues(self: Profile, path: string | { any }, value: any): ()
-	if self:IsActive() == false then
-		return
-	end
 	if typeof(path) == "string" then
 		self.Replica:SetValues(StringPathToArray(path), value)
 	else
@@ -129,9 +119,6 @@ function Profile.RemoveValue(self: Profile, path: string | { any }, value: any):
 end
 
 function Profile.TableInsert(self: Profile, path: string | { any }, value: any, index: number?): number?
-	if self:IsActive() == false then
-		return
-	end
 	local Data
 
 	if typeof(path) == "string" then
@@ -145,9 +132,6 @@ function Profile.TableInsert(self: Profile, path: string | { any }, value: any, 
 end
 
 function Profile.TableRemove(self: Profile, path: string | { any }, index: number): number?
-	if self:IsActive() == false then
-		return
-	end
 	local Data
 
 	if typeof(path) == "string" then
@@ -753,7 +737,10 @@ function MonetizationStoreServer.WaitForAllProductInfosToBeLoaded(self: Monetiza
 	self._productInfosLoadedSignal:Wait()
 end
 
-function MonetizationStoreServer.UpdatePlayerOwnedGamepasses(self: MonetizationStoreServer, player: Player): { [number]: boolean }
+function MonetizationStoreServer.UpdatePlayerOwnedGamepasses(
+	self: MonetizationStoreServer,
+	player: Player
+): { [number]: boolean }
 	local ownedGamepasses = {}
 	local Profile = self:GetProfile(player)
 
@@ -779,7 +766,11 @@ function MonetizationStoreServer.UpdatePlayerOwnedGamepasses(self: MonetizationS
 	return ownedGamepasses
 end
 
-function MonetizationStoreServer.PlayerOwnsGamepass(self: MonetizationStoreServer, player: Player, productId: product): boolean
+function MonetizationStoreServer.PlayerOwnsGamepass(
+	self: MonetizationStoreServer,
+	player: Player,
+	productId: product
+): boolean
 	local productInfo = self:GetGamepassInfo(productId)
 	if not productInfo then
 		return false
@@ -797,7 +788,11 @@ function MonetizationStoreServer.IsIdAGroupId(self: MonetizationStoreServer, pot
 	return success
 end
 
-function MonetizationStoreServer.IsPlayerInGroup(self: MonetizationStoreServer, player: Player | number, groupId: number?): boolean
+function MonetizationStoreServer.IsPlayerInGroup(
+	self: MonetizationStoreServer,
+	player: Player | number,
+	groupId: number?
+): boolean
 	if groupId == nil then
 		if not self:IsIdAGroupId(game.CreatorId) then
 			warn(`game.CreatorId ({game.CreatorId}) is not a valid GroupId`)
