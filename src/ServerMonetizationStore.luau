@@ -621,7 +621,6 @@ function MonetizationStoreServer._playerRemoving(self: MonetizationStoreServer, 
 	end
 
 	profile:EndSession()
-	self._profiles[player].Replica:Destroy()
 	self._profiles[player] = nil
 end
 

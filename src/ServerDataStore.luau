@@ -439,7 +439,6 @@ function DataStoreServer._playerRemoving(self: DataStoreServer, player: Player):
 	self:OnPlayerRemoving(player, profile)
 
 	profile:EndSession()
-	self._profiles[player].Replica:Destroy()
 	self._profiles[player] = nil
 end
 
