@@ -285,7 +285,7 @@ function DataStoreServer.init(self: DataStoreServer, options: DataOptions): ()
 	local PlayerStore = ProfileStore.New(options.DataKey, options.template)
 	self.options = options
 	self.profileStore = options.useMock and PlayerStore.Mock or PlayerStore
-	self.token = Replica.Token("DataStoreServer")
+	self.token = Replica.Token("DataStore")
 
 	for _, player: Player in Players:GetPlayers() do
 		task.spawn(function()
