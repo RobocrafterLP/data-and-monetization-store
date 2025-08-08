@@ -92,7 +92,6 @@ local RateLimit = require(ReplicaShared.RateLimit)
 local Remote = require(ReplicaShared.Remote)
 local Signal = require(ReplicaShared.Signal)
 local Maid = require(ReplicaShared.Maid)
-local Connection = require(ReplicaShared.Connection)
 
 ----- Private -----
 
@@ -110,10 +109,10 @@ local GlobalRateLimit = RateLimit.New(120)
 
 local ReadyPlayers: { [Player]: boolean } = {}
 
-local Replicas = {} -- [id] = Replica, ...
-local TopReplicas = {} -- [Replica] = true, ... -- Replicas with active subsciption settings
-local ReplicationAllReplicas = {} -- [Replica] = true, ... -- Replicas that had the method :Replicate() called on them
-local SelectiveSubscriptions = {} -- [Player] = {[replica] = true, ...}
+local Replicas = {} -- {[id]: Replica}
+local TopReplicas = {} -- {[Replica]: true} -- Replicas with active subscription settings
+local ReplicationAllReplicas = {} -- {[Replica]: true} -- Replicas that had the method :Replicate() called on them
+local SelectiveSubscriptions = {} -- {[Player]: {[replica]: true}}
 
 local RemoteRequestData = Remote.New("ReplicaRequestData") -- Fired client-side when the client loads for the first time
 
@@ -207,7 +206,7 @@ function GenerateCreation(replica)
 end
 
 ----- Public -----
-type Connection = typeof(Connection)
+
 export type Replica = {
 	Tags: { [any]: any },
 	Data: { [any]: any },
@@ -223,7 +222,15 @@ export type Replica = {
 	SetValues: (self: any, path: { string }, values: { [string]: any }) -> (),
 	TableInsert: (self: any, path: { string }, value: any, index: number?) -> number,
 	TableRemove: (self: any, path: { string }, index: number) -> any,
-	Get: (self: any, path: { string }) -> any,
+	OnChange: (
+		self: any,
+		listener: (
+			action: "Set" | "SetValues" | "TableInsert" | "TableRemove",
+			path: { any },
+			param1: any,
+			param2: any?
+		) -> ()
+	) -> Signal.Connection,
 	Write: (self: any, function_name: string, ...any) -> ...any,
 	FireClient: (self: any, player: Player, ...any) -> (),
 	FireAllClients: (self: any, ...any) -> (),
@@ -238,15 +245,7 @@ export type Replica = {
 	Identify: (self: any) -> string,
 	IsActive: (self: any) -> boolean,
 	Destroy: (self: any) -> (),
-	OnChange: (
-		self: any,
-		listener: (
-			action: "Set" | "SetValues" | "TableInsert" | "TableRemove",
-			path: { any },
-			param1: any,
-			param2: any?
-		) -> ()
-	) -> Connection,
+	Get: (self: any, path: { string }) -> any,
 }
 
 local Replica = {
@@ -258,8 +257,6 @@ Replica.__index = Replica
 
 local ReplicaToken = {}
 ReplicaToken.__index = ReplicaToken
-
-export type Token = typeof(ReplicaToken)
 
 local LockedReplica = {}
 LockedReplica.__index = LockedReplica
@@ -283,6 +280,8 @@ function Replica.Token(name: string)
 
 	return self
 end
+
+export type Token = typeof(ReplicaToken)
 
 function Replica.New(params: { Token: Token, Tags: {}?, Data: {}?, WriteLib: ModuleScript? }): Replica
 	local token = params.Token
@@ -324,10 +323,8 @@ function Replica.New(params: { Token: Token, Tags: {}?, Data: {}?, WriteLib: Mod
 		write_lib = write_lib,
 		write_lib_module = params.WriteLib,
 		bind_value = nil,
-		--//CUSTOM\\--
-		set_listeners = {}, -- [key] = {[connection] = true, ...}, ...
-		write_listeners = {}, -- [key] = {[connection] = true, ...}, ...
-		changed_listeners = {}, -- [connection] = true, ...
+		set_listeners = {}, -- {[key]: Signal}
+		changed_listeners = Signal.New(),
 	}, Replica)
 
 	Replicas[Index] = self
@@ -355,9 +352,11 @@ function Replica:Set(path: { string }, value: any)
 	for i = 1, #path - 1 do
 		pointer = pointer[path[i]]
 	end
+
 	local last_key = path[#path]
 	local old_value = pointer[last_key]
-	pointer[last_key] = value
+
+	pointer[path[#path]] = value
 
 	-- Replicate change:
 
@@ -375,52 +374,14 @@ function Replica:Set(path: { string }, value: any)
 			end
 		end
 	end
-	--//CUSTOM\\--
+
 	if next(self.set_listeners) ~= nil then
 		local listeners = self.set_listeners[table.concat(path, ".")]
 		if listeners ~= nil then
-			for connection in pairs(listeners) do
-				connection:Fire(value, old_value)
-			end
+			listeners:Fire(value, old_value)
 		end
 	end
-
-	for connection in pairs(self.changed_listeners) do
-		connection:Fire("Set", path, value, old_value)
-	end
-end
-
---//CUSTOM\\--
-function Replica:OnSet(path: {}, listener: () -> ()): Connection
-	local path_key = table.concat(path, ".")
-	local listeners = self.set_listeners[path_key]
-	if listeners == nil then
-		listeners = {}
-		self.set_listeners[path_key] = listeners
-	end
-
-	return Connection.new(listeners, listener)
-end
-
---//CUSTOM\\--
-function Replica:OnWrite(function_name: string, listener: (...any) -> ()): Connection
-	local listeners = self.write_listeners[function_name]
-	if listeners == nil then
-		listeners = {}
-		self.write_listeners[function_name] = listeners
-	end
-
-	return Connection.new(listeners, listener)
-end
-
---//CUSTOM\\--
-function Replica:OnChange(listener: (
-	action: "Set" | "SetValues" | "TableInsert" | "TableRemove",
-	path: { any },
-	param1: any,
-	param2: any?
-) -> ()): Connection
-	return Connection.new(self.changed_listeners, listener)
+	self.changed_listeners:Fire("Set", path, value, old_value)
 end
 
 function Replica:SetValues(path: { string }, values: { [string]: any })
@@ -430,7 +391,11 @@ function Replica:SetValues(path: { string }, values: { [string]: any })
 	for _, key in ipairs(path) do
 		pointer = pointer[key]
 	end
+
+	local old_values = {}
+
 	for key, value in pairs(values) do
+		old_values[key] = pointer[key]
 		pointer[key] = value
 	end
 
@@ -451,10 +416,7 @@ function Replica:SetValues(path: { string }, values: { [string]: any })
 		end
 	end
 
-	--//CUSTOM\\--
-	for connection in pairs(self.changed_listeners) do
-		Connection:Fire("SetValues", path, values)
-	end
+	self.changed_listeners:Fire("SetValues", path, values, old_values)
 end
 
 function Replica:TableInsert(path: { string }, value: any, index: number?): number
@@ -487,11 +449,6 @@ function Replica:TableInsert(path: { string }, value: any, index: number?): numb
 		end
 	end
 
-	--//CUSTOM\\--
-	for connection in pairs(self.changed_listeners) do
-		Connection:Fire("TableInsert", path, value, index)
-	end
-
 	return index or #pointer
 end
 
@@ -519,11 +476,6 @@ function Replica:TableRemove(path: { string }, index: number): any
 				end
 			end
 		end
-	end
-
-	--//CUSTOM\\--
-	for connection in pairs(self.changed_listeners) do
-		connection:Fire("TableRemove", path, removed_value, index)
 	end
 
 	return removed_value
@@ -580,6 +532,15 @@ function Replica:Write(function_name: string, ...): ...any
 	end
 
 	return table.unpack(return_params)
+end
+
+function Replica:OnChange(listener: (
+	action: "Set" | "SetValues" | "TableInsert" | "TableRemove",
+	path: { any },
+	param1: any,
+	param2: any?
+) -> ()): Signal.Connection
+	return self.changed_listeners:Connect(listener)
 end
 
 function Replica:FireClient(player, ...)
@@ -768,14 +729,14 @@ function Replica:BindToInstance(instance: Instance)
 	end
 
 	if
-		instance:IsA("Model")
+		instance:IsA("Model") == true
 		and (
-			instance.ModelStreamingMode == Enum.ModelStreamingMode.Default
-			or instance.ModelStreamingMode == Enum.ModelStreamingMode.Nonatomic
+			(instance :: Model).ModelStreamingMode == Enum.ModelStreamingMode.Default
+			or (instance :: Model).ModelStreamingMode == Enum.ModelStreamingMode.Nonatomic
 		)
 	then
 		warn(
-			`[{script.Name}]: Bound Replica to a model that has inproper "ModelStreamingMode" setup; Traceback:\n`
+			`[{script.Name}]: Bound Replica to a model that has improper "ModelStreamingMode" setup; Traceback:\n`
 				.. debug.traceback()
 		)
 	end
@@ -919,7 +880,7 @@ function Replica:Identify(): string
 		tag_string ..= `{if first_tag == true then "" else ";"}{tostring(key)}={tostring(value)}`
 		first_tag = false
 	end
-	return `[Id:{self.Id};Token:{self.Token};Tags:\{{tag_string}\}]`
+	return `[Id:{self.Id};Token:{self.Token};Tags:[{tag_string}]]`
 end
 
 function Replica:IsActive(): boolean
@@ -1021,7 +982,7 @@ RemoteRequestData.OnServerEvent:Connect(function(player: Player)
 	end
 
 	-- Make the client create all replicas that are initially replicated to the client;
-	-- Pack up and send intially replicated replicas:
+	-- Pack up and send initially replicated replicas:
 
 	local creation = {}
 

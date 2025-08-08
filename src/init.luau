@@ -3,11 +3,11 @@ local ClientMonetizationStore = require(script.ClientMonetizationStore)
 local ServerDataStore = require(script.ServerDataStore)
 local ServerMonetizationStore = require(script.ServerMonetizationStore)
 
-export type ServerDataStore = ServerDataStore.DataStore
-export type ClientDataStore = ClientDataStore.DataStore
+export type ServerDataStore = ServerDataStore.DataStoreServer
+export type ClientDataStore = ClientDataStore.DataStoreClient
 
-export type ServerMonetizationStore = ServerMonetizationStore.MonetizationStore
-export type ClientMonetizationStore = ClientMonetizationStore.MonetizationStore
+export type ServerMonetizationStore = ServerMonetizationStore.MonetizationStoreServer
+export type ClientMonetizationStore = ClientMonetizationStore.MonetizationStoreClient
 
 return {
     data = {
@@ -17,5 +17,14 @@ return {
     monetization = {
         server = ServerMonetizationStore,
         client = ClientMonetizationStore,
+    }
+} :: {
+    data: {
+        server: ServerDataStore,
+        client: ClientDataStore,
+    },
+    monetization: {
+        server: ServerMonetizationStore,
+        client: ClientMonetizationStore,
     }
 }

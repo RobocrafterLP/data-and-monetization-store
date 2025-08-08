@@ -6,15 +6,16 @@ local Players = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
 local GroupService = game:GetService("GroupService")
 
-local DataStoreShared = script.Parent.DataStoreShared
-local DataStoreServer = script.Parent.DataStoreServer
+local DataStoreSharedFolder = script.Parent.DataStoreShared
+local DataStoreServerFolder = script.Parent.DataStoreServer
 
-local Replica = require(DataStoreServer.ReplicaServer)
-local ProfileStore = require(DataStoreServer.ProfileStore)
-local Connection = require(DataStoreShared.Connection)
-local Signal = require(DataStoreShared.GoodSignal)
-local Remote = require(DataStoreShared.Remote)
-local Function = require(DataStoreShared.Function)
+local ProfileServer = require(DataStoreServerFolder.ProfileServer)
+local Replica = require(DataStoreServerFolder.ReplicaServer)
+local ProfileStore = require(DataStoreServerFolder.ProfileStore)
+local Connection = require(DataStoreSharedFolder.Connection)
+local Signal = require(DataStoreSharedFolder.GoodSignal)
+local Remote = require(DataStoreSharedFolder.Remote)
+local Function = require(DataStoreSharedFolder.Function)
 
 local Monetization_GetMonetizationConfig = Function.New("Monetization_GetMonetizationConfig")
 local Monetization_OnGroupRewardClaimAttempted = Remote.New("Monetization_OnGroupRewardClaimAttempted")
@@ -22,9 +23,6 @@ local Monetization_AttemptToClaimGroupReward = Function.New("Monetization_Attemp
 local Monetization_SendPromptPurchase = Remote.New("Monetization_SendPromptPurchase")
 local Monetization_DevProductPurchased = Remote.New("Monetization_DevProductPurchased")
 local Monetization_GamepassPurchased = Remote.New("Monetization_GamepassPurchased")
-
-local Profile = {}
-Profile.__index = Profile
 
 local MonetizationStoreServer = {
 	_profiles = {} :: { [Player]: Profile },
@@ -56,239 +54,6 @@ function generateUUID()
 		local v = (c == "x") and math.random(0, 0xf) or math.random(8, 0xb)
 		return string.format("%x", v)
 	end)
-end
-
-function StringPathToArray(path)
-	local path_array = {}
-	if path ~= "" then
-		for s in string.gmatch(path, "[^%.]+") do
-			table.insert(path_array, s)
-		end
-	end
-	return path_array
-end
-
-function Profile.IsActive(self: Profile): boolean
-	return self.Profile:IsActive()
-end
-
-function Profile.EndSession(self: Profile): ()
-	self.Profile:EndSession()
-end
-
-function Profile.GetValue(self: Profile, path: string | { any }): any
-	if typeof(path) == "string" then
-		return self.Replica:Get(StringPathToArray(path))
-	end
-
-	return self.Replica:Get(path)
-end
-
-function Profile.SetValue(self: Profile, path: string | { any }, value: any): ()
-	if typeof(path) == "string" then
-		self.Replica:Set(StringPathToArray(path), value)
-	else
-		self.Replica:Set(path, value)
-	end
-
-	self:VisualizeData()
-end
-
-function Profile.SetValues(self: Profile, path: string | { any }, value: any): ()
-	if typeof(path) == "string" then
-		self.Replica:SetValues(StringPathToArray(path), value)
-	else
-		self.Replica:SetValues(path, value)
-	end
-
-	self:VisualizeData()
-end
-
-function Profile.AddValue(self: Profile, path: string | { any }, value: any): number
-	local oldvalue = self:GetValue(path) or 0
-	local newValue = oldvalue + value
-	self:SetValue(path, newValue)
-	return newValue
-end
-
-function Profile.RemoveValue(self: Profile, path: string | { any }, value: any): number
-	local oldvalue = self:GetValue(path) or 0
-	local newValue = oldvalue - value
-	self:SetValue(path, newValue)
-	return newValue
-end
-
-function Profile.TableInsert(self: Profile, path: string | { any }, value: any, index: number?): number?
-	local Data
-
-	if typeof(path) == "string" then
-		Data = self.Replica:TableInsert(StringPathToArray(path), value, index)
-	else
-		Data = self.Replica:TableInsert(path, value, index)
-	end
-
-	self:VisualizeData()
-	return Data
-end
-
-function Profile.TableRemove(self: Profile, path: string | { any }, index: number): number?
-	local Data
-
-	if typeof(path) == "string" then
-		Data = self.Replica:TableRemove(StringPathToArray(path), index)
-	else
-		Data = self.Replica:TableRemove(path, index)
-	end
-
-	self:VisualizeData()
-	return Data
-end
-
-function Profile.SubscribeToChange(
-	self: Profile,
-	path: string | { any },
-	listener: (new: any, old: any) -> ()
-): Connection
-	local path_key = typeof(path) == "string" and path or typeof(path) == "table" and table.concat(path, ".")
-
-	local listeners = self.Listeners.Change[path_key]
-	if listeners == nil then
-		listeners = {}
-		self.Listeners.Change[path_key] = listeners
-	end
-
-	return Connection.new(listeners, listener)
-end
-
-function Profile.SubscribeToNewKey(
-	self: Profile,
-	path: string | { any },
-	listener: (new: any, old: any) -> ()
-): Connection
-	local path_key = typeof(path) == "string" and path or typeof(path) == "table" and table.concat(path, ".")
-
-	local listeners = self.Listeners.NewKey[path_key]
-	if listeners == nil then
-		listeners = {}
-		self.Listeners.NewKey[path_key] = listeners
-	end
-
-	return Connection.new(listeners, listener)
-end
-
-function Profile.SubscribeToRemoveKey(
-	self: Profile,
-	path: string | { any },
-	listener: (new: any, old: any) -> ()
-): Connection
-	local path_key = typeof(path) == "string" and path or typeof(path) == "table" and table.concat(path, ".")
-
-	local listeners = self.Listeners.RemoveKey[path_key]
-	if listeners == nil then
-		listeners = {}
-		self.Listeners.RemoveKey[path_key] = listeners
-	end
-
-	return Connection.new(listeners, listener)
-end
-
-function Profile.SubscribeToArrayInsert(
-	self: Profile,
-	path: string | { any },
-	listener: (new: any, old: any) -> ()
-): Connection
-	local path_key = typeof(path) == "string" and path or typeof(path) == "table" and table.concat(path, ".")
-
-	local listeners = self.Listeners.ArrayInsert[path_key]
-	if listeners == nil then
-		listeners = {}
-		self.Listeners.ArrayInsert[path_key] = listeners
-	end
-
-	return Connection.new(listeners, listener)
-end
-
-function Profile.SubscribeToArrayRemove(
-	self: Profile,
-	path: string | { any },
-	listener: (new: any, old: any) -> ()
-): Connection
-	local path_key = typeof(path) == "string" and path or typeof(path) == "table" and table.concat(path, ".")
-
-	local listeners = self.Listeners.ArrayRemove[path_key]
-	if listeners == nil then
-		listeners = {}
-		self.Listeners.ArrayRemove[path_key] = listeners
-	end
-
-	return Connection.new(listeners, listener)
-end
-
-function Profile.Save(self: Profile): ()
-	self.Profile:Save()
-end
-
-function Profile.WipeData(self: Profile): ()
-	self:SetValue({}, {})
-	self.Profile:Reconcile()
-	self:Save()
-end
-
-function Profile.VisualizeData(self: Profile): ()
-	if not game:GetService("RunService"):IsStudio() then
-		return
-	end
-	local FolderName = "MonetizationData"
-
-	local visual = self._player:FindFirstChild(FolderName)
-
-	-- fix later to remove instaces that aren't stored in the profile anymore
-	if not visual then
-		visual = Instance.new("Folder", self._player)
-		visual.Name = FolderName
-	end
-
-	local function processnum(Par, Nam, Val)
-		local num = Par:FindFirstChild(Nam) or Instance.new("NumberValue", Par)
-		num.Name = Nam
-		num.Value = Val
-	end
-
-	local function processstring(Par, Nam, Val)
-		local str = Par:FindFirstChild(Nam) or Instance.new("StringValue", Par)
-		str.Name = Nam
-		str.Value = Val
-	end
-
-	local function processbool(Par, Nam, Val)
-		local bool = Par:FindFirstChild(Nam) or Instance.new("BoolValue", Par)
-		bool.Name = Nam
-		bool.Value = Val
-	end
-
-	local function ProcessTable(Table, Parent)
-		for key, value in pairs(Table) do
-			if typeof(value) == "string" then
-				processstring(Parent, key, Table[key])
-			end
-
-			if typeof(value) == "number" then
-				processnum(Parent, key, Table[key])
-			end
-
-			if typeof(value) == "boolean" then
-				processbool(Parent, key, Table[key])
-			end
-
-			if type(value) == "table" then
-				local newpar = Parent:FindFirstChild(key) or Instance.new("Folder", Parent)
-				newpar.Name = key
-				ProcessTable(Table[key], newpar)
-			end
-		end
-	end
-
-	ProcessTable(self.Profile.Data, visual)
 end
 
 function MonetizationStoreServer.init(self: MonetizationStoreServer, options: DataOptions): ()
@@ -550,45 +315,23 @@ function MonetizationStoreServer._playerAdded(self: MonetizationStoreServer, pla
 		return
 	end
 
-	playerprofile:AddUserId(userId)
-	playerprofile:Reconcile()
+	local Profile = ProfileServer.new(self.token, playerprofile, player)
 
-	playerprofile.OnSessionEnd:Connect(function()
+	Profile.OnSessionEnd:Connect(function()
 		self._profiles[player] = nil
 		player:Kick(`Profile session end - Please rejoin`)
 	end)
 
 	if not player:IsDescendantOf(Players) then
-		playerprofile:EndSession()
+		Profile:EndSession()
 		return
 	end
 
-	local playerreplica = setmetatable({
-		Profile = playerprofile,
-		Replica = Replica.New({
-			Token = self.token,
-			Tags = { Player = player },
-			Data = playerprofile.Data,
-			Replication = player,
-			Listeners = {
-				Change = {},
-				NewKey = {},
-				RemoveKey = {},
-				ArrayInsert = {},
-				ArrayRemove = {},
-				Leaderstats = {},
-			},
-		}),
-		_player = player,
-	}, Profile)
-
-	playerreplica:VisualizeData()
-	playerreplica.Replica:Replicate()
-	self._profiles[player] = playerreplica
+	self._profiles[player] = Profile
 
 	self:UpdatePlayerGroupStatus(player)
 	self:UpdatePlayerOwnedGamepasses(player)
-	self:OnPlayerAdded(player, playerreplica)
+	self:OnPlayerAdded(player, Profile)
 end
 
 function MonetizationStoreServer._playerRemoving(self: MonetizationStoreServer, player: Player): ()
@@ -894,22 +637,7 @@ export type PurchaseHandlers = { [product]: PurchaseHandlers }
 
 export type MonetizationStoreServer = typeof(MonetizationStoreServer)
 
-export type Connections = { [string | { string }]: typeof(Connection.new()) }
-
-export type Connection = typeof(Connection.new())
-
-export type Profile = typeof(Profile) & {
-	Profile: ProfileStore.Profile<any>,
-	Replica: Replica.Replica,
-	_player: Player,
-	Listeners: {
-		Change: Connections,
-		NewKey: Connections,
-		RemoveKey: Connections,
-		ArrayInsert: Connections,
-		ArrayRemove: Connections,
-	},
-}
+export type Profile = ProfileServer.Profile
 
 export type ProductInfo = {
 	AssetId: number,

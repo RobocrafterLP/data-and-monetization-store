@@ -54,7 +54,7 @@ DataStore:init({
     }
 })
 
-MonetizationStore:Init({
+MonetizationStore:init({
     DataKey = "MonetizationStore001",
     useMock = nil,
     template = {
@@ -108,8 +108,8 @@ MonetizationStore:Init({
 
 ```luau
 local DataAndMonetizationStore = require(path.to.service)
-local DataStore = DataAndMonetizationStore.data.server
-local MonetizationStore = DataAndMonetizationStore.monetization.server
+local DataStore = DataAndMonetizationStore.data.client
+local MonetizationStore = DataAndMonetizationStore.monetization.client
 
 
 ```

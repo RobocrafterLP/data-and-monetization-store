@@ -3,29 +3,15 @@ if game:GetService("RunService"):IsServer() then
 end
 
 local Players = game:GetService("Players")
-local DataStoreShared = script.Parent.DataStoreShared
-local DataStoreClient = script.Parent.DataStoreClient
+local DataStoreClientFolder = script.Parent.DataStoreClient
 
 local LocalPlayer = Players.LocalPlayer
-local Replica = require(DataStoreClient.ReplicaClient)
-local Connection = require(DataStoreShared.Connection)
-
-local Profile = {}
-Profile.__index = Profile
+local ProfileClient = require(script.Parent.DataStoreClient.ProfileClient)
+local ReplicaClient = require(DataStoreClientFolder.ReplicaClient)
 
 local DataStoreClient = {
 	_profiles = {} :: { [Player]: Profile },
 }
-
-function StringPathToArray(path)
-	local path_array = {}
-	if path ~= "" then
-		for s in string.gmatch(path, "[^%.]+") do
-			table.insert(path_array, s)
-		end
-	end
-	return path_array
-end
 
 function CreateProfile(replica)
 	local player: Player? = replica.Tags.Player
@@ -33,19 +19,7 @@ function CreateProfile(replica)
 		return
 	end
 
-	local playerreplica = setmetatable({
-		Replica = replica,
-		_player = player,
-		Connections = {},
-		Listeners = {
-			Change = {},
-			NewKey = {},
-			RemoveKey = {},
-			ArrayInsert = {},
-			ArrayRemove = {},
-			Leaderstats = {},
-		},
-	}, Profile)
+	local Profile = ProfileClient.new(replica, player)
 
 	player.AncestryChanged:Connect(function()
 		if not player:IsDescendantOf(Players) then
@@ -53,147 +27,7 @@ function CreateProfile(replica)
 		end
 	end)
 
-	playerreplica.Replica:OnChange(function(action, path, new, old)
-		local path_key = table.concat(path, ".")
-		if action == "Set" and old ~= nil and new ~= nil then
-			local listeners = playerreplica.Listeners.Change[path_key]
-			if listeners ~= nil then
-				for connection in pairs(listeners) do
-					connection:Fire(new, old)
-				end
-			end
-		elseif action == "Set" and old and new == nil then
-			local key = table.remove(path, #path)
-			local path_key = table.concat(path, ".")
-			local listeners = playerreplica.Listeners.RemoveKey[path_key]
-			if listeners ~= nil then
-				for connection in pairs(listeners) do
-					connection:Fire(key, new, old)
-				end
-			end
-		elseif action == "Set" and old == nil and new then
-			local key = table.remove(path, #path)
-			local path_key = table.concat(path, ".")
-			local listeners = playerreplica.Listeners.NewKey[path_key]
-			if listeners ~= nil then
-				for connection in pairs(listeners) do
-					connection:Fire(key, new, old)
-				end
-			end
-		elseif action == "TableInsert" then
-			local listeners = playerreplica.Listeners.ArrayInsert[path_key]
-			if listeners ~= nil then
-				for connection in pairs(listeners) do
-					connection:Fire(new, old)
-				end
-			end
-		elseif action == "TableRemove" then
-			local listeners = playerreplica.Listeners.ArrayRemove[path_key]
-			if listeners ~= nil then
-				for connection in pairs(listeners) do
-					connection:Fire(new, old)
-				end
-			end
-		end
-	end)
-
-	DataStoreClient._profiles[player] = playerreplica
-end
-
-function Profile.IsActive(self: Profile)
-	return self.Replica:IsActive()
-end
-
-function Profile.GetValue(self: Profile, path: string | { any })
-	if self:IsActive() == false then
-		return
-	end
-
-	if typeof(path) == "string" then
-		return self.Replica:Get(StringPathToArray(path))
-	end
-
-	return self.Replica:Get(path)
-end
-
-function Profile.SubscribeToChange(
-	self: Profile,
-	path: string | { any },
-	listener: (new: any, old: any) -> ()
-): Connection
-	local path_key = typeof(path) == "string" and path or typeof(path) == "table" and table.concat(path, ".")
-
-	local listeners = self.Listeners.Change[path_key]
-	if listeners == nil then
-		listeners = {}
-		self.Listeners.Change[path_key] = listeners
-	end
-
-	return Connection.new(listeners, listener)
-end
-
-function Profile.SubscribeToNewKey(
-	self: Profile,
-	path: string | { any },
-	listener: (key: any, new: any, old: any) -> ()
-): Connection
-	local path_key = typeof(path) == "string" and path or typeof(path) == "table" and table.concat(path, ".")
-
-	local listeners = self.Listeners.NewKey[path_key]
-	if listeners == nil then
-		listeners = {}
-		self.Listeners.NewKey[path_key] = listeners
-	end
-
-	return Connection.new(listeners, listener)
-end
-
-function Profile.SubscribeToRemoveKey(
-	self: Profile,
-	path: string | { any },
-	listener: (key: any, new: any, old: any) -> ()
-): Connection
-	local path_key = typeof(path) == "string" and path or typeof(path) == "table" and table.concat(path, ".")
-
-	local listeners = self.Listeners.RemoveKey[path_key]
-	if listeners == nil then
-		listeners = {}
-		self.Listeners.RemoveKey[path_key] = listeners
-	end
-
-	return Connection.new(listeners, listener)
-end
-
-function Profile.SubscribeToArrayInsert(
-	self: Profile,
-	path: string | { any },
-	listener: (new: any, old: any) -> ()
-): Connection
-	local path_key = typeof(path) == "string" and path or typeof(path) == "table" and table.concat(path, ".")
-
-	local listeners = self.Listeners.ArrayInsert[path_key]
-	if listeners == nil then
-		listeners = {}
-		self.Listeners.ArrayInsert[path_key] = listeners
-	end
-
-	return Connection.new(listeners, listener)
-end
-
-function Profile.SubscribeToArrayRemove(
-	self: Profile,
-	path: string | { any },
-	listener: (new: any, old: any) -> ()
-): Connection
-	local path_key = typeof(path) == "string" and path or typeof(path) == "table" and table.concat(path, ".")
-
-	local listeners = self.Listeners.ArrayRemove[path_key]
-	if listeners == nil then
-		listeners = {}
-		self.Listeners.ArrayRemove[path_key] = listeners
-	end
-
-	return Connection.new(listeners, listener)
+	DataStoreClient._profiles[player] = Profile
 end
 
 function DataStoreClient.HasProfile(self: DataStoreClient, player: Player?): boolean
@@ -215,7 +49,7 @@ end
 
 function DataStoreClient.init(self: DataStoreClient, DataOptions: DataOptions)
 	self.DataOptions = DataOptions
-	Replica.FromData(table.clone(DataOptions.template), "DataStore", 2)
+	ReplicaClient.FromData(table.clone(DataOptions.template), "DataStore", 2)
 end
 
 export type DataOptions = {
@@ -231,25 +65,11 @@ export type DataOptions = {
 	}?,
 }
 
-export type Connections = { [string | { string }]: typeof(Connection.new()) }
-
-export type Connection = typeof(Connection.new())
+export type Profile = ProfileClient.Profile
 
 export type DataStoreClient = typeof(DataStoreClient)
 
-export type Profile = typeof(Profile) & {
-	Replica: Replica.Replica,
-	_player: Player,
-	Listeners: {
-		Change: Connections,
-		NewKey: Connections,
-		RemoveKey: Connections,
-		ArrayInsert: Connections,
-		ArrayRemove: Connections,
-	},
-}
+ReplicaClient.OnNew("DataStore", CreateProfile)
 
-Replica.OnNew("DataStore", CreateProfile)
-
-Replica.RequestData()
+ReplicaClient.RequestData()
 return DataStoreClient

@@ -148,7 +148,7 @@ function Remote.New(name: string, is_unreliable: boolean?): RemoteEvent
 			end
 
 			self.RemoteEvent = remote
-			connections = {}
+			connections = nil :: any
 		end
 
 		if Container ~= nil then

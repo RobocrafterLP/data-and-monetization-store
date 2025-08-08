@@ -1,6 +1,10 @@
 # Project place file
 /data-and-monetization-store.rbxlx
-
+/Packages
 # Roblox Studio lock files
 /*.rbxlx.lock
 /*.rbxl.lock
+
+data.project.json
+serve.project.json
+sourcemap.json
