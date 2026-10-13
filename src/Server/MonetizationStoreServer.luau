@@ -199,28 +199,33 @@ function MonetizationStoreServer.init<T>(self: MonetizationStoreServer<T>, optio
 	end
 end
 
+function MonetizationStoreServer.sendDataUpdate<T>(self: MonetizationStoreServer<T>, player: Player, profile: Profile<T>): ()
+	if self.options.dataReplica == "All" then
+		self.networker:fireAll("load", player, profile.Data())
+
+		task.delay(0.05, function()
+			for profileplayer, profiledata in self._profiles do
+				if profileplayer == player then
+					continue
+				end
+
+				self.networker:fire(player, "load", profileplayer, profiledata.Data())
+			end
+		end)
+	else
+		self.networker:fire(player, "load", player, profile.Data())
+	end
+end
+
 function MonetizationStoreServer.requestData<T>(self: MonetizationStoreServer<T>, player: Player): ()
 	local Profile = self:GetProfile(player)
 	if Profile == nil then
 		return
 	end
 
-	if self.options.dataReplica == "All" then
-		self.networker:fireAll("load", player, Profile.Data())
-
-		task.delay(0.05, function()
-			for profileplayer, profile in self._profiles do
-				if profileplayer == player then
-					continue
-				end
-
-				self.networker:fire(player, "load", profileplayer, profile.Data())
-			end
-		end)
-	else
-		self.networker:fire(player, "load", player, Profile.Data())
-	end
+	self:sendDataUpdate(player, Profile)
 end
+
 --Monetization
 function MonetizationStoreServer._playerAdded<T>(self: MonetizationStoreServer<T>, player: Player): ()
 	if self._loadingPlayers[player] or self._profiles[player] then
@@ -262,6 +267,8 @@ function MonetizationStoreServer._playerAdded<T>(self: MonetizationStoreServer<T
 		self._profiles[player] = nil
 		player:Kick(`Profile session end - Please rejoin`)
 	end)
+
+	self:sendDataUpdate(player, Profile)
 
 	if not player:IsDescendantOf(Players) then
 		Profile:EndSession()
@@ -411,22 +418,6 @@ function MonetizationStoreServer._initPlayer<T>(self: MonetizationStoreServer<T>
 	self:OnPlayerAdded(player, profile)
 	if not self:HasProfile(player) then
 		return
-	end
-
-	if self.options.dataReplica == "All" then
-		self.networker:fireAll("load", player, profile.Data())
-
-		task.delay(0.05, function()
-			for profileplayer, profiledata in self._profiles do
-				if profileplayer == player then
-					continue
-				end
-
-				self.networker:fire(player, "load", profileplayer, profiledata.Data())
-			end
-		end)
-	else
-		self.networker:fire(player, "load", player, profile.Data())
 	end
 
 	if self.options.leaderstats then

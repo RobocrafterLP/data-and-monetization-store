@@ -1,3 +1,4 @@
+local RunService = game:GetService("RunService")
 local Value = require(script.Parent.Parent.Shared.Value)
 local Utils = require(script.Parent.Parent.Shared.Utils)
 
@@ -40,7 +41,7 @@ function Profile.SetValue<T>(self: Profile<T>, path: Path, value: T)
 	if self:IsActive() == false then
 		return
 	end
-
+	
 	Get(self.Data, path)(value)
 end
 
@@ -98,11 +99,11 @@ function Profile.SubscribeToArrayRemove<T>(self: Profile<T>, path: Path, listene
 end
 
 function Profile.VisualizeData<T>(self: Profile<T>): ()
-	if not game:GetService("RunService"):IsStudio() then
+	if not RunService:IsStudio() or not RunService:IsRunning() then
 		return
 	end
-	local FolderName = self.FolderKey
 
+	local FolderName = self.FolderKey
 	local visual = self._player:FindFirstChild(FolderName)
 
 	if not visual then
@@ -162,7 +163,7 @@ function Profile.VisualizeData<T>(self: Profile<T>): ()
 		end
 	end
 
-	ProcessTable(self.Data(), visual)
+	ProcessTable(Get(self.Data(), ""), visual)
 end
 
 function Profile.Destroy<T>(self: Profile<T>)
