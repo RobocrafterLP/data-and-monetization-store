@@ -180,8 +180,11 @@ function Profile.new<T>(data: any, player: Player, FolderKey: string): Profile<T
 		Active = true,
 		_player = player,
 		Listeners = {},
-		Data = Value.new(data),
 	}, Profile)
+
+	self.Data = Value.new(data, nil, nil, function(...)
+		self:VisualizeData()
+	end)
 
 	self.FolderKey = `{FolderKey}_{ProfileType}`
 
