@@ -162,7 +162,7 @@ function Profile.VisualizeData<T>(self: Profile<T>): ()
 		end
 	end
 
-	ProcessTable(self.Profile.Data, visual)
+	ProcessTable(self.Data(), visual)
 end
 
 function Profile.Destroy<T>(self: Profile<T>)
