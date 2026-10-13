@@ -124,7 +124,7 @@ function MonetizationStoreServer.init<T>(self: MonetizationStoreServer<T>, optio
 	})
 	self.playerStore = ProfileStore.New(self.options.dataKey or DEFAULT_PROFILE_STORE_INDEX, template)
 
-	self:_initProducts(options.products)
+	self:_initProducts(self.options.products)
 
 	self:AddGlobalCallback(GIFT_GLOBAL_CALLBACK_KEY, function(player: Player, data: Utils.GiftData): boolean?
 		return self:ReceiveGift(player, data)
