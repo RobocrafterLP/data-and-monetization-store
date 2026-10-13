@@ -122,7 +122,7 @@ function MonetizationStoreServer.init<T>(self: MonetizationStoreServer<T>, optio
 		self.requestData,
 		self.requestCost,
 	})
-	self.playerStore = ProfileStore.New(options.dataKey or DEFAULT_PROFILE_STORE_INDEX, template)
+	self.playerStore = ProfileStore.New(self.options.dataKey or DEFAULT_PROFILE_STORE_INDEX, template)
 
 	self:_initProducts(options.products)
 

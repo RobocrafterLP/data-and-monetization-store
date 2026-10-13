@@ -12,6 +12,7 @@ export type Value<T> = Value.Value<T>
 export type Path = string | { string }
 export type Profile<T> = typeof(setmetatable(
 	{} :: {
+		Profile: any,
 		Active: boolean,
 		Data: Value<T>,
 		_player: Player,
@@ -97,6 +98,18 @@ function Profile.SubscribeToArrayRemove<T>(self: Profile<T>, path: Path, listene
 	return DisconnectCallback(self.Listeners, dc)
 end
 
+function Profile.AddUserId<T>(self: Profile<T>, userId: number)
+	self.Profile:AddUserId(userId)
+end
+
+function Profile.RemoveUserId<T>(self: Profile<T>, userId: number)
+	self.Profile:RemoveUserId(userId)
+end
+
+function Profile.Reconcile<T>(self: Profile<T>)
+	self.Profile:Reconcile()
+end
+
 function Profile.Destroy<T>(self: Profile<T>)
 	self.Active = false
 
@@ -138,7 +151,7 @@ function Profile.new<T>(
 	end)
 
 	self.FolderKey = FolderKey
-	
+
 	return self
 end
 
