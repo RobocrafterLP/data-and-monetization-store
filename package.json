@@ -1,0 +1,30 @@
+{
+	"name": "genrojotree",
+	"version": "1.0.0",
+	"main": "tools/genRojoTree.js",
+	"scripts": {
+		"build:service": "node tools/genNewServices.js",
+		"build:rojo": "node tools/genRojoTree.js",
+		"wally:install": "wally install && rojo sourcemap default.project.json --output sourcemap.json && wally-package-types -s sourcemap.json Packages/",
+		"wally:sourcemap": "rojo sourcemap default.project.json --output sourcemap.json && wally-package-types -s sourcemap.json Packages/"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"description": "",
+	"nodemonConfig": {
+		"ignore": [
+			"default.project.json",
+			"sourcemap.json"
+		],
+		"watch": [
+			"src/**/*"
+		],
+		"execMap": {
+			"py": "python",
+			"rb": "ruby",
+			"ts": "ts-node"
+		},
+		"delay": 2500
+	}
+}

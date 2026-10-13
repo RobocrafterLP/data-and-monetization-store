@@ -1,7 +1,7 @@
 [package]
 name = "robocrafterlp/data-and-monetization-store"
-description = "Data and monetization handler and replication"
-version = "0.13.0"
+description = "THIS A BETA VERSION USE VERSION 1.0.8 Data and monetization handler and replication"
+version = "2.1.6"
 authors = ["RobocracterLP"]
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
@@ -10,4 +10,8 @@ exclude = ["**"]
 include = ["src", "src/*", "default.project.json", "wally.lock", "wally.toml", "LICENSE"]
 
 [dependencies]
-Sift = "csqrl/sift@0.0.11"
+Signal = "sleitnick/signal@2.0.0"
+Networker = "leifstout/networker@0.3.1"
+
+[server-dependencies]
+ProfileStore = "lm-loleris/profilestore@1.0.3"
