@@ -59,7 +59,7 @@ local function fireCallbacks(value: Value<any>, fnKey: string, ...)
 end
 
 local function sendChangedSignalToChildren(value: Value<any>, initial: boolean?)
-	if not initial then
+	if not initial and rawget(value, CHANGED_KEY) then
 		fireCallbacks(value, CHANGED_KEY, value())
 	end
 

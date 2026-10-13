@@ -193,7 +193,11 @@ function DataStoreServer._playerRemoving<T>(self: DataStoreServer<T>, player: Pl
 	profile:EndSession()
 	self._profiles[player] = nil
 
-	self:_resolveWaiters(player)
+	local waitSignal = self._waitSignals[player]
+	if waitSignal then
+		waitSignal:Destroy()
+		self._waitSignals[player] = nil
+	end
 
 	self.data[player] = nil
 
@@ -207,7 +211,7 @@ end
 function DataStoreServer.OnPlayerAdded<T>(_self: DataStoreServer<T>, _player: Player, _profile: Profile<T>) end
 
 function DataStoreServer._initPlayer<T>(self: DataStoreServer<T>, player: Player, profile: Profile<T>)
-	self:OnPlayerAdded(player, profile.Data())
+	self:OnPlayerAdded(player, profile)
 	if not self:HasProfile(player) then
 		return
 	end

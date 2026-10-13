@@ -59,10 +59,29 @@ function DataStoreClient.GetPlayerProfileAsync<T>(self: DataStoreClient<T>, play
 	if not waitSignal then
 		waitSignal = Signal.new()
 		self._waitSignals[player] = waitSignal
+
+		local leftConnection: RBXScriptConnection
+		leftConnection = player.AncestryChanged:Connect(function()
+			if not player:IsDescendantOf(Players) then
+				leftConnection:Disconnect()
+				self:_resolveWaiters(player)
+			end
+		end)
 	end
 
 	waitSignal:Wait()
 	return self:GetProfile(player)
+end
+
+function DataStoreClient._resolveWaiters<T>(self: DataStoreClient<T>, player: Player): ()
+	local waitSignal = self._waitSignals[player]
+	if not waitSignal then
+		return
+	end
+
+	self._waitSignals[player] = nil
+	waitSignal:Fire()
+	waitSignal:Destroy()
 end
 
 function DataStoreClient.load<T>(self: DataStoreClient<T>, player: Player, data: T)
@@ -70,15 +89,10 @@ function DataStoreClient.load<T>(self: DataStoreClient<T>, player: Player, data:
 		return
 	end
 
-	local profile = ProfileClient.new(data, player)
+	local profile = ProfileClient.new(data, player, "Data")
 	self._profiles[player] = profile
 
-	local waitSignal = self._waitSignals[player]
-	if waitSignal then
-		waitSignal:Fire()
-		waitSignal:Destroy()
-		self._waitSignals[player] = nil
-	end
+	self:_resolveWaiters(player)
 
 	self.ProfileAdded:Fire(profile, player)
 end

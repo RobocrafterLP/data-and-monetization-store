@@ -1,6 +1,7 @@
 local Value = require(script.Parent.Parent.Shared.Value)
 local Utils = require(script.Parent.Parent.Shared.Utils)
 
+local ProfileType = "Server"
 local Profile = {}
 Profile.__index = Profile
 
@@ -110,83 +111,6 @@ function Profile.Reconcile<T>(self: Profile<T>)
 	self.Profile:Reconcile()
 end
 
-function Profile.Destroy<T>(self: Profile<T>)
-	self.Active = false
-
-	for _index, dc in self.Listeners do
-		dc()
-	end
-
-	table.freeze(self)
-end
-
-function Profile.new<T>(
-	profile: any,
-	player: Player,
-	replicator: ({ string }, ...any) -> (),
-	FolderKey: string
-): Profile<T>
-	local self = setmetatable({
-		Profile = profile,
-		Active = true,
-		_player = player,
-		Listeners = {},
-		OnSessionEnd = profile.OnSessionEnd,
-		OnAfterSave = profile.OnAfterSave,
-		OnLastSave = profile.OnLastSave,
-		OnSave = profile.OnSave,
-	}, Profile)
-
-	self.Data = Value.new(profile.Data, nil, nil, function(...)
-		self:VisualizeData()
-		replicator(...)
-	end)
-
-	--Server Stuff
-
-	self.OnSessionEnd:Connect(function()
-		for _index, dc in self.Listeners do
-			dc()
-		end
-	end)
-
-	self.FolderKey = FolderKey
-
-	return self
-end
-
---Server Stuff
-export type MessageData = {
-	key: string,
-	data: { any },
-}
-
-function Profile.EndSession<T>(self: Profile<T>): ()
-	self.Profile:EndSession()
-end
-
-function Profile.AddLeaderstat<T>(self: Profile<T>, path: string | { any }, Name: string, Type: string): ()
-	if not self.leaderstats then
-		local leader = Instance.new("Folder")
-		leader.Parent = self._player
-		leader.Name = "leaderstats"
-		self.leaderstats = leader
-	end
-
-	local NewValue = Instance.new(Type)
-	NewValue.Parent = self.leaderstats
-	NewValue.Name = Name
-	NewValue.Value = self:GetValue(path)
-
-	self:SubscribeToChange(path, function(value)
-		NewValue.Value = value
-	end)
-end
-
-function Profile.Save<T>(self: Profile<T>): ()
-	self.Profile:Save()
-end
-
 function Profile.VisualizeData<T>(self: Profile<T>): ()
 	if not game:GetService("RunService"):IsStudio() then
 		return
@@ -253,6 +177,83 @@ function Profile.VisualizeData<T>(self: Profile<T>): ()
 	end
 
 	ProcessTable(self.Profile.Data, visual)
+end
+
+function Profile.Destroy<T>(self: Profile<T>)
+	self.Active = false
+
+	for _index, dc in self.Listeners do
+		dc()
+	end
+
+	table.freeze(self)
+end
+
+function Profile.new<T>(
+	profile: any,
+	player: Player,
+	replicator: ({ string }, ...any) -> (),
+	FolderKey: string
+): Profile<T>
+	local self = setmetatable({
+		Profile = profile,
+		Active = true,
+		_player = player,
+		Listeners = {},
+		OnSessionEnd = profile.OnSessionEnd,
+		OnAfterSave = profile.OnAfterSave,
+		OnLastSave = profile.OnLastSave,
+		OnSave = profile.OnSave,
+	}, Profile)
+
+	self.Data = Value.new(profile.Data, nil, nil, function(...)
+		self:VisualizeData()
+		replicator(...)
+	end)
+
+	--Server Stuff
+
+	self.OnSessionEnd:Connect(function()
+		for _index, dc in self.Listeners do
+			dc()
+		end
+	end)
+
+	self.FolderKey = `{FolderKey}_{ProfileType}`
+
+	return self
+end
+
+--Server Stuff
+export type MessageData = {
+	key: string,
+	data: { any },
+}
+
+function Profile.EndSession<T>(self: Profile<T>): ()
+	self.Profile:EndSession()
+end
+
+function Profile.AddLeaderstat<T>(self: Profile<T>, path: string | { any }, Name: string, Type: string): ()
+	if not self.leaderstats then
+		local leader = Instance.new("Folder")
+		leader.Parent = self._player
+		leader.Name = "leaderstats"
+		self.leaderstats = leader
+	end
+
+	local NewValue = Instance.new(Type)
+	NewValue.Parent = self.leaderstats
+	NewValue.Name = Name
+	NewValue.Value = self:GetValue(path)
+
+	self:SubscribeToChange(path, function(value)
+		NewValue.Value = value
+	end)
+end
+
+function Profile.Save<T>(self: Profile<T>): ()
+	self.Profile:Save()
 end
 
 function Profile.MessageHandler<T>(self: Profile<T>, fn: (messageData: MessageData, processed: () -> ()) -> ()): ()

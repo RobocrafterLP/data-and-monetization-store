@@ -363,7 +363,11 @@ function MonetizationStoreServer._playerRemoving<T>(self: MonetizationStoreServe
 	profile:EndSession()
 	self._profiles[player] = nil
 
-	self:_resolveWaiters(player)
+	local waitSignal = self._waitSignals[player]
+	if waitSignal then
+		waitSignal:Destroy()
+		self._waitSignals[player] = nil
+	end
 
 	self.data[player] = nil
 
@@ -404,7 +408,7 @@ function MonetizationStoreServer.OnPlayerAdded<T>(
 end
 
 function MonetizationStoreServer._initPlayer<T>(self: MonetizationStoreServer<T>, player: Player, profile: Profile<T>)
-	self:OnPlayerAdded(player, profile.Data())
+	self:OnPlayerAdded(player, profile)
 	if not self:HasProfile(player) then
 		return
 	end

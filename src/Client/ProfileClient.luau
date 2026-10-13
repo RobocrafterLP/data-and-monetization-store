@@ -1,6 +1,7 @@
 local Value = require(script.Parent.Parent.Shared.Value)
 local Utils = require(script.Parent.Parent.Shared.Utils)
 
+local ProfileType = "Client"
 local Profile = {}
 Profile.__index = Profile
 
@@ -96,6 +97,74 @@ function Profile.SubscribeToArrayRemove<T>(self: Profile<T>, path: Path, listene
 	return DisconnectCallback(self.Listeners, dc)
 end
 
+function Profile.VisualizeData<T>(self: Profile<T>): ()
+	if not game:GetService("RunService"):IsStudio() then
+		return
+	end
+	local FolderName = self.FolderKey
+
+	local visual = self._player:FindFirstChild(FolderName)
+
+	if not visual then
+		visual = Instance.new("Folder")
+		visual.Parent = self._player
+		visual.Name = FolderName
+	end
+
+	local function processnum(Par, Nam, Val)
+		local num = Par:FindFirstChild(Nam) or Instance.new("NumberValue")
+		num.Parent = Par
+		num.Name = Nam
+		num.Value = Val
+	end
+
+	local function processstring(Par, Nam, Val)
+		local str = Par:FindFirstChild(Nam) or Instance.new("StringValue")
+		str.Parent = Par
+		str.Name = Nam
+		str.Value = Val
+	end
+
+	local function processbool(Par, Nam, Val)
+		local bool = Par:FindFirstChild(Nam) or Instance.new("BoolValue")
+		bool.Parent = Par
+		bool.Name = Nam
+		bool.Value = Val
+	end
+
+	local function ProcessTable(Table, Parent)
+		for key, value in pairs(Table) do
+			if typeof(value) == "string" then
+				processstring(Parent, key, value)
+			end
+
+			if typeof(value) == "number" then
+				processnum(Parent, key, value)
+			end
+
+			if typeof(value) == "boolean" then
+				processbool(Parent, key, value)
+			end
+
+			if type(value) == "table" then
+				local newpar = Parent:FindFirstChild(key) or Instance.new("Folder")
+				newpar.Parent = Parent
+				newpar.Name = key
+
+				for _, v in newpar:GetChildren() do
+					if value[tonumber(v.Name) or v.Name] == nil then
+						v:Destroy()
+					end
+				end
+
+				ProcessTable(value, newpar)
+			end
+		end
+	end
+
+	ProcessTable(self.Profile.Data, visual)
+end
+
 function Profile.Destroy<T>(self: Profile<T>)
 	self.Active = false
 
@@ -106,13 +175,15 @@ function Profile.Destroy<T>(self: Profile<T>)
 	table.freeze(self)
 end
 
-function Profile.new<T>(data: any, player: Player): Profile<T>
+function Profile.new<T>(data: any, player: Player, FolderKey: string): Profile<T>
 	local self = setmetatable({
 		Active = true,
 		_player = player,
 		Listeners = {},
-		Data = Value.new(data)
+		Data = Value.new(data),
 	}, Profile)
+
+	self.FolderKey = `{FolderKey}_{ProfileType}`
 
 	return self
 end

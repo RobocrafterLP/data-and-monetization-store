@@ -130,10 +130,29 @@ function MonetizationStoreClient.GetPlayerProfileAsync<T>(self: MonetizationStor
 	if not waitSignal then
 		waitSignal = Signal.new()
 		self._waitSignals[player] = waitSignal
+
+		local leftConnection: RBXScriptConnection
+		leftConnection = player.AncestryChanged:Connect(function()
+			if not player:IsDescendantOf(Players) then
+				leftConnection:Disconnect()
+				self:_resolveWaiters(player)
+			end
+		end)
 	end
 
 	waitSignal:Wait()
 	return self:GetProfile(player)
+end
+
+function MonetizationStoreClient._resolveWaiters<T>(self: MonetizationStoreClient<T>, player: Player): ()
+	local waitSignal = self._waitSignals[player]
+	if not waitSignal then
+		return
+	end
+
+	self._waitSignals[player] = nil
+	waitSignal:Fire()
+	waitSignal:Destroy()
 end
 
 function MonetizationStoreClient.load<T>(self: MonetizationStoreClient<T>, player: Player, data: T)
@@ -141,15 +160,10 @@ function MonetizationStoreClient.load<T>(self: MonetizationStoreClient<T>, playe
 		return
 	end
 
-	local profile = ProfileClient.new(data, player)
+	local profile = ProfileClient.new(data, player, "Monetization")
 	self._profiles[player] = profile
 
-	local waitSignal = self._waitSignals[player]
-	if waitSignal then
-		waitSignal:Fire()
-		waitSignal:Destroy()
-		self._waitSignals[player] = nil
-	end
+	self:_resolveWaiters(player)
 
 	self.ProfileAdded:Fire(profile, player)
 end
@@ -201,11 +215,7 @@ function MonetizationStoreClient.destroy<T>(self: MonetizationStoreClient<T>, pl
 
 	self._profiles[player] = nil
 
-	local waitSignal = self._waitSignals[player]
-	if waitSignal then
-		waitSignal:Destroy()
-		self._waitSignals[player] = nil
-	end
+	self:_resolveWaiters(player)
 	
 	self.ProfileRemoved:Fire(profile, player)
 end
